@@ -9,31 +9,36 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    haskell-language-server = {
-      url = github:haskell/haskell-language-server/1.4.0-hackage;
+    easy-hls = {
+      url = github:ssbothwell/easy-hls-nix;
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
   };
 
-  outputs = { self, nixpkgs, haskell-language-server, flake-utils}:
-    let
-      overlays = [
-        haskell-language-server.overlay
-      ];
-    in flake-utils.lib.eachDefaultSystem (system:
-      let pkgs = import nixpkgs { inherit system overlays; };
+  outputs = { self, nixpkgs, easy-hls, flake-utils}:
+    flake-utils.lib.eachDefaultSystem (system:
+      let pkgs = import nixpkgs { inherit system; };
+          hls = pkgs.callPackage easy-hls {
+            ghcVersions = [ "8.10.4" ];
+          };
       in rec {
         devShell = pkgs.haskellPackages.shellFor {
           packages = _: [];
           buildInputs = [
             pkgs.haskellPackages.cabal-install
             pkgs.haskellPackages.ghc
-            pkgs.haskellPackages.haskell-language-server
             pkgs.zlib
+            pkgs.zlib.dev
+            pkgs.pkg-config
+            hls
           ];
+          shellHook = ''
+            export LD_LIBRARY_PATH=${pkgs.zlib}/lib
+            export DYLD_LIBRARY_PATH=${pkgs.zlib}/lib
+            export PATH=$PATH:$HOME/.local/bin
+          '';
         };
         defaultPackage =
           pkgs.haskellPackages.callCabal2nix "cofree-bot" ./. {};
-      }) // { inherit overlays; };
+      });
 }
