@@ -23,6 +23,7 @@ common common-settings
     DerivingVia
     TypeApplications
 
+  pkgconfig-depends: zlib
   ghc-options:
     -Wall
     -Wcpp-undef
@@ -35,10 +36,12 @@ common common-settings
 common common-libraries
   build-depends:
     , base >= 2 && < 5
+    , aeson
     , containers
     , lens
     , matrix-client
     , mtl
+    , network-uri
     , pretty-simple
     , text
 
@@ -50,7 +53,9 @@ executable cofree-bot
   -- other-modules:
   -- other-extensions:
   hs-source-dirs: app
-  build-depends: cofree-bot
+  build-depends:
+      cofree-bot
+    , optparse-applicative
 
 library
   import:
@@ -58,6 +63,7 @@ library
     , common-settings
   hs-source-dirs: src
   exposed-modules:
-      CofreeBot.Session
-    , CofreeBot.Events
+      CofreeBot
+    , CofreeBot.Session
+    , Network.Matrix.Client.Lens
   -- other-modules:
