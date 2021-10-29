@@ -43,6 +43,7 @@ common common-libraries
     , mtl
     , network-uri
     , pretty-simple
+    , stm
     , text
 
 executable cofree-bot
@@ -65,5 +66,6 @@ library
   exposed-modules:
       CofreeBot
     , CofreeBot.Session
+    , CofreeBot.Plugins
     , Network.Matrix.Client.Lens
   -- other-modules:
