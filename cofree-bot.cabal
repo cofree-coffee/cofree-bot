@@ -12,15 +12,16 @@ common common-settings
   default-language:    Haskell2010
   default-extensions:
     DeriveGeneric
+    DerivingVia
     FlexibleContexts
     FlexibleInstances
     InstanceSigs
+    ImportQualifiedPost
     LambdaCase
     NamedFieldPuns
     OverloadedStrings
     RecordWildCards
     TupleSections
-    DerivingVia
     TypeApplications
 
   pkgconfig-depends: zlib
@@ -51,12 +52,13 @@ executable cofree-bot
     , common-libraries
     , common-settings
   main-is: Main.hs
-  -- other-modules:
   -- other-extensions:
   hs-source-dirs: app
   build-depends:
       cofree-bot
     , optparse-applicative
+  other-modules:
+    OptionsParser
 
 library
   import:

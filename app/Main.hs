@@ -6,9 +6,11 @@ import Control.Monad
 import Control.Monad.Reader
 import Data.Coerce
 import Network.Matrix.Client
-import Options.Applicative
+import Options.Applicative qualified as Opt
 
 import CofreeBot
+
+import OptionsParser
 import Control.Concurrent.STM.TChan (newTChanIO)
 
 {-
@@ -39,36 +41,21 @@ should be streamed in. Whenever we invoke a subroutine, we dupe the
 relevant TChan.
 -}
 
-parseToken :: Parser MatrixToken
-parseToken =
-     MatrixToken <$> strOption
-         (long "auth_token"
-       <> metavar "MATRIX_AUTH_TOKEN"
-       <> help "Matrix authentication token")
-
-parseServer :: Parser MatrixServer
-parseServer =
-     MatrixServer <$> strOption
-         (long "homeserver"
-       <> metavar "MATRIX_HOMESERVER"
-       <> help "Matrix Homeserver")
-
-parseConfig :: Parser (MatrixToken, MatrixServer)
-parseConfig = (,) <$> parseToken <*> parseServer
-
-parserInfo :: ParserInfo (MatrixToken, MatrixServer)
-parserInfo = info (parseConfig <**> helper)
-       (fullDesc
-         <> progDesc "Print a greeting for TARGET"
-         <> header "hello - a test for optparse-applicative" )
-
 main :: IO ()
 main = do
-  (token, server) <- execParser parserInfo
   cache <- newTVarIO mempty
   respChan <- newTChanIO
-  session <- createSession (coerce server) token
-  let cfg = Config session cache respChan
-  void $ forkIO $ runReaderT dispatchThread cfg
-  void $ forkIO $ runReaderT responseThread cfg
-  runReaderT pollThread cfg
+
+  command <- Opt.execParser parserInfo
+  case command of
+    LoginCmd cred -> do
+      session <- login cred
+      let cfg = Config session cache respChan
+      connectAndSend cfg
+    TokenCmd TokenCredentials{..} -> do
+      session <- createSession (coerce matrixServer) matrixToken
+      let cfg = Config session cache respChan
+      connectAndSend cfg
+  -- void $ forkIO $ runReaderT dispatchThread cfg
+  -- void $ forkIO $ runReaderT responseThread cfg
+  -- runReaderT pollThread cfg

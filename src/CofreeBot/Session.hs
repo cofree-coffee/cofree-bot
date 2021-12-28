@@ -55,11 +55,15 @@ sendResp MessageResponse{..} session =
 -- | Example of sending a message
 connectAndSend :: Config -> IO ()
 connectAndSend Config{..}= void $ do
-  Right userId <- getTokenOwner session
-  --print userId
-  Right filterId <- createFilter session userId messageFilter
-  --print filterId
-  Right _ <- getFilter session userId filterId
-  --print filter
-
-  sendMessage session (RoomID "!zPTNNaDUkBDMbuceAw:cofree.coffee") (EventRoomMessage (RoomMessageText (MessageText "this was sent by a bot" TextType Nothing Nothing))) (TxnID "1")
+  res <- runExceptT $ do
+    userId <- ExceptT $ getTokenOwner session
+    --print userId
+    filterId <- ExceptT $ createFilter session userId messageFilter
+    --print filterId
+    _ <- liftIO $ getFilter session userId filterId
+    --print filter
+    pure (userId, filterId)
+  case res of
+    Left err -> print err
+    Right _ ->
+      void $ sendMessage session (RoomID "!zPTNNaDUkBDMbuceAw:cofree.coffee") (EventRoomMessage (RoomMessageText (MessageText "this was sent by a bot" TextType Nothing Nothing))) (TxnID "1")
