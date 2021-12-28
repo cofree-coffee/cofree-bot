@@ -2,7 +2,7 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixos-21.05;
+    nixpkgs.url = github:NixOS/nixpkgs/nixos-21.11;
 
     flake-utils = {
       url = github:numtide/flake-utils;
@@ -19,7 +19,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let pkgs = import nixpkgs { inherit system; };
           hls = pkgs.callPackage easy-hls {
-            ghcVersions = [ "8.10.4" ];
+            ghcVersions = [ "8.10.7" ];
           };
       in rec {
         devShell = pkgs.haskellPackages.shellFor {
