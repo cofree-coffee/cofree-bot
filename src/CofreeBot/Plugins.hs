@@ -1,8 +1,6 @@
 module CofreeBot.Plugins where
 
-import qualified Data.Map as M
 import qualified Data.Text as T
-import Network.Matrix.Client
 
 newtype MatrixServer = MatrixServer { getMatrixServer :: T.Text }
 

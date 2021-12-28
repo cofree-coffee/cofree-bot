@@ -34,8 +34,8 @@ runListener session since =
     userId <- ExceptT $ getTokenOwner session
     filterId <- ExceptT $ createFilter session userId messageFilter
     syncPoll session (Just filterId) since (Just Online) $ \syncResult -> do
-       let since :: T.Text
-           since = syncResult ^. _srNextBatch
+       let newSince :: T.Text
+           newSince = syncResult ^. _srNextBatch
 
            roomsMap :: Map.Map T.Text JoinedRoomSync
            roomsMap = syncResult ^. _srRooms . _Just . _srrJoin . ifolded 
@@ -46,7 +46,7 @@ runListener session since =
            mentionMessages :: Map.Map T.Text [RoomEvent]
            mentionMessages = fmap (mapMaybe findMentions) roomEvents
 
-       liftIO $ writeFile "/tmp/cofree-bot-since_file" (T.unpack since)
+       liftIO $ writeFile "/tmp/cofree-bot-since_file" (T.unpack newSince)
        pPrint mentionMessages
        getAp $ Map.foldMapWithKey (\rid -> foldMap $ \event -> Ap $ void $ ExceptT $ respondToMention session rid event) mentionMessages
 
