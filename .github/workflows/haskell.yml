@@ -53,6 +53,15 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
       
+      - name: "Update Cabal"
+        run: cabal update
+
+      - name: "Install dependencies"
+        run: cabal install --only-dependencies
+
+      - name: "Configure Static"
+        run: cabal configure --disable-executable-dynamic --disable-shared --ghc-option=-optl=-static
+
       - name: "Build"
         run: cabal build $CONFIG
 
