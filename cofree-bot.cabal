@@ -21,6 +21,7 @@ common common-settings
     NamedFieldPuns
     OverloadedStrings
     RecordWildCards
+    ScopedTypeVariables
     TupleSections
     TypeApplications
 
@@ -45,7 +46,6 @@ common common-libraries
     , network-uri
     , pretty-simple
     , random
-    , stm
     , text
 
 executable cofree-bot

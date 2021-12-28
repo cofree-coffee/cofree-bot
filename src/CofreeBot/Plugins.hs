@@ -4,7 +4,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import Network.Matrix.Client
 
-newtype MatrixServer = MatrixServer T.Text
+newtype MatrixServer = MatrixServer { getMatrixServer :: T.Text }
 
 -- | An enumeration of all available plugins
 data PluginLabel

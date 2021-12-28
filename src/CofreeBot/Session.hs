@@ -1,13 +1,9 @@
 module CofreeBot.Session where
 
-import Control.Concurrent.STM.TVar (modifyTVar, readTVarIO)
 import Text.Pretty.Simple
 import Control.Lens
-import CofreeBot.Plugins
 import Control.Monad
 import Control.Monad.Except
-import Control.Monad.Reader
-import Control.Monad.STM (atomically)
 import Data.Maybe (mapMaybe)
 import Data.Monoid (Ap(..))
 import Data.Map.Strict qualified as Map
@@ -18,9 +14,10 @@ import System.Random (randomIO)
 
 findMentions :: RoomEvent -> Maybe RoomEvent
 findMentions roomEvent = do
-    formattedMessage <- roomEvent ^. _reContent . _EventRoomMessage . _RoomMessageText . _mtFormattedBody
-    let href = "<a href=\"https://matrix.to/#/@cofree-bot:cofree.coffee\">cofree-bot</a>"
-    if href `T.isInfixOf` formattedMessage
+    let formattedMessage = roomEvent ^. _reContent . _EventRoomMessage . _RoomMessageText . _mtBody
+    -- href = "<a href=\"https://matrix.to/#/@cofree-bot:cofree.coffee\">cofree-bot</a>"
+        name = "cofree-bot"
+    if name `T.isInfixOf` formattedMessage
        then Just roomEvent
        else Nothing
 
@@ -31,13 +28,16 @@ respondToMention session rid event = do
   sendMessage session (RoomID rid) (mkReply (RoomID rid) event msg) (TxnID n)
 
 -- NOTE: This needs to get handled properly:
-runListener :: ClientSession -> IO ()
-runListener session =
+runListener :: ClientSession -> Maybe T.Text -> IO ()
+runListener session since =
   void $ runExceptT $ do
     userId <- ExceptT $ getTokenOwner session
     filterId <- ExceptT $ createFilter session userId messageFilter
-    syncPoll session (Just filterId) Nothing (Just Online) $ \syncResult -> do
-       let roomsMap :: Map.Map T.Text JoinedRoomSync
+    syncPoll session (Just filterId) since (Just Online) $ \syncResult -> do
+       let since :: T.Text
+           since = syncResult ^. _srNextBatch
+
+           roomsMap :: Map.Map T.Text JoinedRoomSync
            roomsMap = syncResult ^. _srRooms . _Just . _srrJoin . ifolded 
 
            roomEvents :: Map.Map T.Text [RoomEvent]
@@ -46,6 +46,7 @@ runListener session =
            mentionMessages :: Map.Map T.Text [RoomEvent]
            mentionMessages = fmap (mapMaybe findMentions) roomEvents
 
+       liftIO $ writeFile "/tmp/cofree-bot-since_file" (T.unpack since)
        pPrint mentionMessages
        getAp $ Map.foldMapWithKey (\rid -> foldMap $ \event -> Ap $ void $ ExceptT $ respondToMention session rid event) mentionMessages
 
