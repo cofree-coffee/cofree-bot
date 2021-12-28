@@ -31,8 +31,8 @@ _mtFormattedBody = lens getter setter
     getter = mtFormattedBody
     setter mt t = mt { mtFormattedBody = t}
 
-_roomMessageText :: Lens' RoomMessage MessageText
-_roomMessageText = lens getter setter
+_RoomMessageText :: Lens' RoomMessage MessageText
+_RoomMessageText = lens getter setter
   where
     getter = coerce
     setter _ t = RoomMessageText t

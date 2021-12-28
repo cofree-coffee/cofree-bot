@@ -44,6 +44,7 @@ common common-libraries
     , mtl
     , network-uri
     , pretty-simple
+    , random
     , stm
     , text
 
