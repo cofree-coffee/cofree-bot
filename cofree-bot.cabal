@@ -38,23 +38,15 @@ common common-settings
 common common-libraries
   build-depends:
     , base >= 2 && < 5
-    , aeson
-    , containers
-    , lens
     , matrix-client
-    , mtl
     , network-uri
-    , pretty-simple
-    , random
     , text
-    , attoparsec
 
 executable cofree-bot
   import:
     , common-libraries
     , common-settings
   main-is: Main.hs
-  -- other-extensions:
   hs-source-dirs: app
   build-depends:
       cofree-bot
@@ -72,4 +64,12 @@ library
     , CofreeBot.Session
     , CofreeBot.Plugins
     , Network.Matrix.Client.Lens
-  -- other-modules:
+  build-depends:
+    , aeson
+    , attoparsec
+    , containers
+    , lens
+    , mtl
+    , pretty-simple
+    , profunctors
+    , random
