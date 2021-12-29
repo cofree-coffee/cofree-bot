@@ -27,6 +27,7 @@ instance Bifunctor BotAction
   where
   bimap f g (BotAction a b) = BotAction (g a) (f b)
 
+-- TODO: Make Profunctor and friends
 type Bot m s i o = i -> s -> m (BotAction s o)
 
 type SimpleBot s = Bot IO s T.Text [T.Text]
