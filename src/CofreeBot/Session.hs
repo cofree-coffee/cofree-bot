@@ -12,6 +12,8 @@ import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 import System.Random (randomIO)
 
+newtype MatrixServer = MatrixServer { getMatrixServer :: T.Text }
+
 findMentions :: RoomEvent -> Maybe RoomEvent
 findMentions roomEvent = do
     let formattedMessage = roomEvent ^. _reContent . _EventRoomMessage . _RoomMessageText . _mtBody
