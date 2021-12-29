@@ -34,14 +34,15 @@ readFileMaybe path =
 
 main :: IO ()
 main = do
-  command <- Opt.execParser parserInfo
-  since <- readFileMaybe "/tmp/cofree-bot-since_file"
-  case command of
-    LoginCmd cred -> do
-      session <- login cred
-      --let cfg = Config session cache respChan
-      --connectAndSend cfg
-      runListener session since
-    TokenCmd TokenCredentials{..} -> do
-      session <- createSession (getMatrixServer matrixServer) matrixToken
-      runListener session since
+  runSimpleBot arithBot' mempty
+  -- command <- Opt.execParser parserInfo
+  -- since <- readFileMaybe "/tmp/cofree-bot-since_file"
+  -- case command of
+  --   LoginCmd cred -> do
+  --     session <- login cred
+  --     --let cfg = Config session cache respChan
+  --     --connectAndSend cfg
+  --     runListener session since
+  --   TokenCmd TokenCredentials{..} -> do
+  --     session <- createSession (getMatrixServer matrixServer) matrixToken
+  --     runListener session since

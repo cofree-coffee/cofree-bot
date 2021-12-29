@@ -47,6 +47,7 @@ common common-libraries
     , pretty-simple
     , random
     , text
+    , attoparsec
 
 executable cofree-bot
   import:
