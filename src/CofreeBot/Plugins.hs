@@ -2,7 +2,9 @@
 {-# LANGUAGE PatternSynonyms #-}
 module CofreeBot.Plugins where
 
+import Control.Arrow qualified as Arrow
 import Control.Applicative
+import Control.Category qualified as Cat
 import Control.Lens
 import Control.Monad.Except
 import Control.Monad.State hiding (state)
@@ -10,25 +12,54 @@ import Control.Monad.Writer
 import Data.Coerce (coerce)
 import Data.Foldable (fold, asum, traverse_)
 import Data.List.NonEmpty qualified as NE
-import Data.Text qualified as T
 import Data.Map.Strict qualified as Map
+import Data.Profunctor
+import Data.Text qualified as T
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 import Data.Attoparsec.Text as A
 import Data.Char (isAlpha, isDigit)
 import Data.Bifunctor (Bifunctor(first))
-import Data.Text.Lazy.Builder (flush)
 import System.IO (stdout, hFlush)
 
 data BotAction s o = BotAction { responses :: o, nextState :: s }
   deriving (Functor)
 
-instance Bifunctor BotAction
-  where
+instance Bifunctor BotAction where
   bimap f g (BotAction a b) = BotAction (g a) (f b)
 
--- TODO: Make Profunctor and friends
-type Bot m s i o = i -> s -> m (BotAction s o)
+newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+
+instance Monad m => Cat.Category (Bot m s) where
+  id = Bot $ \a s -> pure $ BotAction a s
+
+  Bot f . Bot g = Bot $ \a s -> do
+    BotAction b s' <- g a s
+    f b s'
+
+instance Monad m => Arrow.Arrow (Bot m s) where
+  arr f = rmap f (Cat.id)
+  first = first'
+
+instance Functor f => Profunctor (Bot f s) where
+  dimap f g (Bot bot) = Bot $ \a -> fmap (fmap g) . bot (f a)
+
+instance Functor f => Strong (Bot f s) where
+  first' (Bot bot) = Bot $ \(a, c) -> fmap (fmap (,c)) . bot a
+
+--instance Functor f => Closed (Bot f s) where
+--  closed (Bot bot) = Bot $ \g s -> fmap (fmap _) $ bot _ s
+
+--instance Functor f => Costrong (Bot f s) where
+--  unfirst (Bot bot) = Bot $ \a s -> fmap (fmap fst) $ bot _ s
+
+--instance Functor f => Choice (Bot f s) where
+--  left' (Bot bot) = Bot $ \case
+--    Left a -> \s -> fmap (fmap Left) $ bot a s
+--    Right c -> \s -> fmap (fmap Left) $ bot _ s
+
+--instance Functor f => Cochoice (Bot f s) where
+--  unleft (Bot bot) = Bot $ \a s -> fmap (fmap _) $ bot (Left a) s
 
 type SimpleBot s = Bot IO s T.Text [T.Text]
 
@@ -155,7 +186,7 @@ interpretProgram' :: Program -> CalcState -> IO (Either CalcError (((), [CalcRes
 interpretProgram' = coerce interpretProgram
 
 arithBot :: Bot IO CalcState Program (Either CalcError [CalcResp])
-arithBot program state =
+arithBot = Bot $ \program state ->
   let f :: Either CalcError (((), [CalcResp]), CalcState) -> BotAction CalcState (Either CalcError [CalcResp])
       f = \case
          Left err -> BotAction (Left err) state
@@ -174,9 +205,10 @@ parseTxt :: T.Text -> Either ParseError Program
 parseTxt = first ParseError . parseOnly parseProgram
 
 arithBot' :: SimpleBot CalcState
-arithBot' msg state = case parseTxt msg of
-  Left (ParseError err) -> pure $ BotAction ["Failed to parse msg: \"" <> msg <> "\". Error message was: \"" <> T.pack err <> "\"."] state
-  Right program -> fmap (fmap printTxt) $ arithBot program state
+arithBot' = Bot $ \msg state ->
+  case parseTxt msg of
+    Left (ParseError err) -> pure $ BotAction ["Failed to parse msg: \"" <> msg <> "\". Error message was: \"" <> T.pack err <> "\"."] state
+    Right program -> fmap (fmap printTxt) $ runBot arithBot program state
 
 runSimpleBot :: forall s. SimpleBot s -> s -> IO ()
 runSimpleBot bot = go
@@ -186,7 +218,7 @@ runSimpleBot bot = go
     putStr "<<< "
     hFlush stdout
     input <- getLine
-    BotAction {..} <- bot (T.pack input) state
+    BotAction {..} <- runBot bot (T.pack input) state
     traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
     go nextState
 
