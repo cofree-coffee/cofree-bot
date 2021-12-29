@@ -48,5 +48,5 @@
           };
           defaultPackage =
             pkgs.haskellPackages.cofree-bot;
-        }) // { inherit overlay overlays; };
+        } // { inherit overlay overlays; });
 }
