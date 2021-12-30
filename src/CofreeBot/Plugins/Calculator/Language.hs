@@ -1,11 +1,7 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE StandaloneKindSignatures #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 module CofreeBot.Plugins.Calculator.Language where
 
+import CofreeBot.Utils
 import Control.Applicative
 import Data.Attoparsec.Text as A
 import Data.Bifunctor
@@ -22,46 +18,15 @@ import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Coerce
-import Data.Kind
 
 --------------------------------------------------------------------------------
 -- Utils
 --------------------------------------------------------------------------------
 
-(|*|) :: Applicative f => f a -> f b -> f (a, b)
-(|*|) = liftA2 (,)
-
-infixr |*|
-
-type (/\) = (,)
-
-infixr /\
-
-type (\/) = Either
-
-infixr \/
-
-type a \?/ b = Maybe (Either a b)
-
-pattern (:&) :: a -> b -> (a, b)
-pattern a :& b = (a, b)
-
-{-# COMPLETE (:&) #-}
-
-infixr :&
-
 infixOp :: Parser a -> Parser b -> Parser T.Text -> Parser (a, b)
 infixOp p1 p2 pop =
   "(" |*| p1 |*| some space |*| pop |*| some space |*| p2 |*| ")" <&>
     \(_ :& e1 :& _ :& _ :& _ :& e2 :& _) -> (e1, e2)
-
-type Transformers
-  :: [(Type -> Type) -> Type -> Type]
-  -> (Type -> Type) -> Type -> Type
-type family Transformers ts m
-  where
-  Transformers '[] m = m
-  Transformers (t ': ts) m = t (Transformers ts m)
 
 --------------------------------------------------------------------------------
 -- Parsing types

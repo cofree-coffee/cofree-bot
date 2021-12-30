@@ -1,13 +1,16 @@
 module CofreeBot.Bot where
 
+import CofreeBot.Utils
 import Control.Arrow qualified as Arrow
 import Control.Category qualified as Cat
 import Data.Bifunctor
+import Data.Foldable
+import Data.Functor ((<&>))
+import Data.Map.Strict qualified as Map
 import Data.Profunctor
 import Data.Text qualified as T
 import Network.Matrix.Client (RoomEvent)
-import Data.Functor ((<&>))
-import Data.Map.Strict qualified as Map
+import System.IO (stdout, hFlush)
 
 data BotAction s o = BotAction { responses :: o, nextState :: s }
   deriving (Functor)
@@ -39,27 +42,40 @@ instance Functor f => Profunctor (Bot f s) where
 instance Functor f => Strong (Bot f s) where
   first' (Bot bot) = Bot $ \(a, c) -> fmap (fmap (,c)) . bot a
 
---instance Functor f => Closed (Bot f s) where
---  closed (Bot bot) = Bot $ \g s -> fmap (fmap _) $ bot _ s
-
---instance Functor f => Costrong (Bot f s) where
---  unfirst (Bot bot) = Bot $ \a s -> fmap (fmap fst) $ bot _ s
-
---instance Functor f => Choice (Bot f s) where
---  left' :: Bot f s a b -> Bot f s (Either a c) (Either b c)
---  left' (Bot bot) = Bot $ \case
---    Left a -> \s -> fmap (fmap Left) $ bot a s
---    Right c -> \s -> fmap (fmap Left) $ bot _ s
-
---instance Functor f => Cochoice (Bot f s) where
---  unleft :: Bot f s (Either a d) (Either b d) -> Bot f s a b
---  unleft (Bot bot) = Bot $ \a s -> fmap (fmap _) $ bot (Left a) s
-
 -- | A 'MatrixBot' maps from 'RoomEvent' to '[RoomEvent]'
 type MatrixBot s = Bot IO s RoomEvent [RoomEvent]
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'
 type SimpleBot s = Bot IO s T.Text [T.Text]
+
+--------------------------------------------------------------------------------
+-- Utils
+--------------------------------------------------------------------------------
+
+nudge :: Applicative m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
+nudge = either
+  (\(Bot b) ->
+    Bot $ either
+      ((fmap . fmap . fmap . fmap) (Just . Left) $ b)
+      (const $ \s -> pure $ BotAction Nothing s))
+  (\(Bot b) ->
+    Bot $ either
+      (const $ \s -> pure $ BotAction Nothing s)
+      ((fmap . fmap . fmap . fmap) (Just . Right) $ b))
+
+nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
+nudgeLeft = nudge . Left
+
+nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
+nudgeRight = nudge . Right
+
+(\/) :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+(\/) (Bot b1) (Bot b2) = Bot $ either
+  ((fmap . fmap . fmap) Left . b1)
+  ((fmap . fmap . fmap) Right . b2)
+
+same :: Either x x -> x
+same = either id id
 
 -- | We can use 'dimap' to convert from one 'Bot' type to
 -- another. This allows us to construct complex buts from simpler
@@ -67,6 +83,21 @@ type SimpleBot s = Bot IO s T.Text [T.Text]
 -- 'Network.Matrix.Client' when constructing a bot.
 simpleBotToMatrixBot :: (RoomEvent -> T.Text) -> (T.Text -> RoomEvent) -> SimpleBot s -> MatrixBot s
 simpleBotToMatrixBot to from = dimap to (fmap from)
+
+pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
+pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
+
+runSimpleBot :: forall s. SimpleBot s -> s -> IO ()
+runSimpleBot bot = go
+  where
+  go :: s -> IO ()
+  go state = do
+    putStr "<<< "
+    hFlush stdout
+    input <- getLine
+    BotAction {..} <- runBot bot (T.pack input) state
+    traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
+    go nextState
 
 --TODO: For Mapping Simple Bots to Matrix Bots
 -- parseRoomEvent :: RoomEvent -> Either ParseError Program
@@ -83,6 +114,10 @@ simpleBotToMatrixBot to from = dimap to (fmap from)
 --     let txt = T.pack $ show expr <> " = " <> show n
 --         msgTxt = (MessageText txt TextType Nothing Nothing)
 --     in EventRoomMessage $ RoomMessageText msgTxt
+
+--------------------------------------------------------------------------------
+-- Session
+--------------------------------------------------------------------------------
 
 data SessionState s = SessionState { sessions :: Map.Map Int s }
 

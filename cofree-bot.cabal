@@ -11,6 +11,7 @@ category:           matrix, bot
 common common-settings
   default-language:    Haskell2010
   default-extensions:
+    DataKinds
     DeriveFunctor
     DeriveGeneric
     DerivingVia
@@ -22,10 +23,14 @@ common common-settings
     LambdaCase
     NamedFieldPuns
     OverloadedStrings
+    PatternSynonyms
     RecordWildCards
     ScopedTypeVariables
+    StandaloneKindSignatures
     TupleSections
     TypeApplications
+    TypeFamilies
+    TypeOperators
 
   ghc-options:
     -Wall
@@ -62,11 +67,12 @@ library
   hs-source-dirs: src
   exposed-modules:
       CofreeBot
-    , CofreeBot.Session
     , CofreeBot.Bot
     , CofreeBot.Plugins
     , CofreeBot.Plugins.Calculator
     , CofreeBot.Plugins.Calculator.Language
+    , CofreeBot.Session
+    , CofreeBot.Utils
     , Network.Matrix.Client.Lens
   build-depends:
     , aeson
