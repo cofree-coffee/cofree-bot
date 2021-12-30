@@ -1,5 +1,5 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
-module CofreeBot.Plugins.Calculator.Language where
+module CofreeBot.Bot.Calculator.Language where
 
 import CofreeBot.Utils
 import Control.Applicative

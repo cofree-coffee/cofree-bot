@@ -32,3 +32,6 @@ type family Transformers ts m
   where
   Transformers '[] m = m
   Transformers (t ': ts) m = t (Transformers ts m)
+
+same :: Either x x -> x
+same = either id id

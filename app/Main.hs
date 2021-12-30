@@ -4,12 +4,11 @@ import CofreeBot
 import Control.Exception
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
---import Network.Matrix.Client
---import Options.Applicative qualified as Opt
---import OptionsParser
+import Network.Matrix.Client
+import Options.Applicative qualified as Opt
+import OptionsParser
 import System.IO.Error (isDoesNotExistError)
 
-import CofreeBot.Plugins.Calculator.Language
 {-
 *This is a very scrappy rough draft*
 
@@ -21,10 +20,16 @@ Initial Goals:
   name?' in the appropriate channel
 - [x] Tracks what messages it has already consumed and uses that to
       avoid sending duplicate responses after restarting
-- [ ] Plugin Architecture
-- [ ] Administrative inteface (via private message?)
+- [x] Core Bot Architecture
+- [ ] Bot Lifting Into MatrixBot
+  - [x] Prototype
+  - [ ] Handle Full RoomEvents
+- [ ] Use XDG Directories
+- [ ] Bot Tensoring
+- [ ] Sessions
 - [ ] Automated Build and Deploy to server
-- [ ] Add a test suite
+- [ ] Test suite
+- [ ] Administrative interface (via private message?)
 -}
 
 readFileMaybe :: String -> IO (Maybe T.Text)
@@ -36,17 +41,17 @@ readFileMaybe path =
 
 main :: IO ()
 main = do
-  runSimpleBot (_ $ sessionize $ calculatorBot) mempty
+  --runSimpleBot (simplifyCalculatorBot calculatorBot) mempty
   --runSimpleBot (runCalculatorBot $ runSession $ sessionize $ calculatorBot) mempty
 
-  -- command <- Opt.execParser parserInfo
-  -- since <- readFileMaybe "/tmp/cofree-bot-since_file"
-  -- case command of
-  --   LoginCmd cred -> do
-  --     session <- login cred
-  --     --let cfg = Config session cache respChan
-  --     --connectAndSend cfg
-  --     runListener session since
-  --   TokenCmd TokenCredentials{..} -> do
-  --     session <- createSession (getMatrixServer matrixServer) matrixToken
-  --     runListener session since
+  command <- Opt.execParser parserInfo
+  since <- readFileMaybe "/tmp/cofree-bot-since_file"
+  case command of
+    LoginCmd cred -> do
+      session <- login cred
+      --let cfg = Config session cache respChan
+      --connectAndSend cfg
+      runListener session since
+    TokenCmd TokenCredentials{..} -> do
+      session <- createSession (getMatrixServer matrixServer) matrixToken
+      runListener session since

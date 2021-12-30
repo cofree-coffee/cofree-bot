@@ -1,7 +1,8 @@
-module CofreeBot.Plugins.Calculator where
+module CofreeBot.Bot.Calculator where
 
 import CofreeBot.Bot
-import CofreeBot.Plugins.Calculator.Language
+import CofreeBot.Bot.Calculator.Language
+import CofreeBot.Utils
 import Data.Profunctor
 import Data.Text qualified as T
 import Data.Functor

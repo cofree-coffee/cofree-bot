@@ -68,9 +68,11 @@ library
   exposed-modules:
       CofreeBot
     , CofreeBot.Bot
-    , CofreeBot.Plugins
-    , CofreeBot.Plugins.Calculator
-    , CofreeBot.Plugins.Calculator.Language
+    , CofreeBot.Bot.Calculator
+    , CofreeBot.Bot.Calculator.Language
+    , CofreeBot.Bot.Hello
+    , CofreeBot.Bot.Matrix
+    , CofreeBot.Bot.Simple
     , CofreeBot.Session
     , CofreeBot.Utils
     , Network.Matrix.Client.Lens
