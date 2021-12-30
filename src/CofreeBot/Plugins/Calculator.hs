@@ -1,85 +1,70 @@
+{-# LANGUAGE TypeOperators #-}
 module CofreeBot.Plugins.Calculator where
 
 import CofreeBot.Bot
 import CofreeBot.Plugins.Calculator.Language
-import Control.Applicative
-import Control.Monad.Except
-import Control.Monad.State hiding (state)
-import Control.Monad.Writer
-import Data.Coerce (coerce)
 import Data.Foldable
-import Data.Map.Strict qualified as Map
 import Data.Profunctor
 import Data.Text qualified as T
 import System.IO (stdout, hFlush)
+import Data.Functor
 
--- | Evaluate an expression in our arithmetic language
-eval ::
-  ( MonadError CalcError m
-  , MonadState CalcState m
-  )
-  => Expr -> m Int
-eval = \case
-  Var bndr -> do
-    state <- get
-    maybe (throwError $ LookupError bndr) pure $ Map.lookup bndr state  
-  Val i -> pure i
-  Add x y -> liftA2 (+) (eval x) (eval y)
-  Mult x y -> liftA2 (*) (eval x) (eval y)
-  Neg x -> fmap negate $ eval x
+--------------------------------------------------------------------------------
+-- Utils
+--------------------------------------------------------------------------------
 
--- | Interpret a language statement into response.
-interpret ::
-  ( MonadError CalcError m
-  , MonadState CalcState m
-  , MonadWriter [CalcResp] m
-  )
-  => Statement -> m ()
-interpret = \case
-  Let bndr expr -> do
-    val <- eval expr
-    modify (Map.insert bndr val)
-  StdOut expr -> do
-    val <- eval expr
-    tell [Log expr val]
-  StdErr err -> tell [LogErr err]
+nudge :: Applicative m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
+nudge = either
+  (\(Bot b) ->
+    Bot $ either
+      ((fmap . fmap . fmap . fmap) (Just . Left) $ b)
+      (const $ \s -> pure $ BotAction Nothing s))
+  (\(Bot b) ->
+    Bot $ either
+      (const $ \s -> pure $ BotAction Nothing s)
+      ((fmap . fmap . fmap . fmap) (Just . Right) $ b))
 
-type CalculatorM = WriterT [CalcResp] (StateT CalcState (ExceptT CalcError IO))
+nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
+nudgeLeft = nudge . Left
 
--- | Interpret a list of statements 
-interpretProgram :: Program -> CalculatorM ()
-interpretProgram program = fmap fold $ traverse interpret program
+nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
+nudgeRight = nudge . Right
 
-runProgram :: Program -> CalcState -> IO (Either CalcError (((), [CalcResp]), CalcState))
-runProgram = coerce interpretProgram
+(\/) :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+(\/) (Bot b1) (Bot b2) = Bot $ either
+  ((fmap . fmap . fmap) Left . b1)
+  ((fmap . fmap . fmap) Right . b2)
+
+same :: Either x x -> x
+same = either id id
+
+pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
+pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
+
+--------------------------------------------------------------------------------
+-- Calculator bot
+--------------------------------------------------------------------------------
 
 type CalculatorBot = Bot IO CalcState Program (Either CalcError [CalcResp])
 
 calculatorBot :: CalculatorBot
 calculatorBot = Bot $ \program state ->
-  let f :: Either CalcError (((), [CalcResp]), CalcState) -> BotAction CalcState (Either CalcError [CalcResp])
-      f = \case
-         Left err -> BotAction (Left err) state
-         Right ((_, resp), state') -> BotAction (Right resp) state'
-  in fmap f $ runProgram program state
+  fmap (uncurry BotAction) $ interpretProgram'' program state
 
-calculatorBotToSimpleBot :: CalculatorBot -> SimpleBot CalcState
-calculatorBotToSimpleBot = dimap to from
-  where
-    to :: T.Text -> Program
-    to msg = 
-      case parseTxt msg of
-        Left (ParseError err) -> pure $ StdErr $ "Failed to parse msg: \"" <> msg <> "\". Error message was: \"" <> T.pack err <> "\"."
-        Right program -> program
-
-    from :: Either CalcError [CalcResp] -> [T.Text]
-    from = printTxt
+parseErrorBot :: Applicative m => Bot m s ParseError T.Text
+parseErrorBot = pureStatelessBot $ \ParseError {..} ->
+  "Failed to parse msg: \"" <> parseInput <> "\". Error message was: \"" <> parseError <> "\"."
 
 simpleCalculatorBot :: SimpleBot CalcState
-simpleCalculatorBot = Bot $ \msg state ->
-  case parseTxt msg of
-    Left (ParseError err) -> pure $ BotAction ["Failed to parse msg: \"" <> msg <> "\". Error message was: \"" <> T.pack err <> "\"."] state
-    Right program -> fmap (fmap printTxt) $ runBot calculatorBot program state
+simpleCalculatorBot
+  = dimap parseProgram same
+  $ rmap (:[]) parseErrorBot \/ rmap printTxt calculatorBot
+  where
+  printTxt :: Either CalcError [CalcResp] -> [T.Text]
+  printTxt = \case
+    Left err -> pure $ T.pack $ show err
+    Right resps -> resps <&> \case
+      Log e n -> T.pack $ show e <> " = " <> show n
 
 runSimpleBot :: forall s. SimpleBot s -> s -> IO ()
 runSimpleBot bot = go

@@ -35,7 +35,7 @@ readFileMaybe path =
 main :: IO ()
 main = do
   --runSimpleBot simpleCalculatorBot mempty
-  runSimpleBot (calculatorBotToSimpleBot calculatorBot) mempty
+  runSimpleBot simpleCalculatorBot mempty
   -- command <- Opt.execParser parserInfo
   -- since <- readFileMaybe "/tmp/cofree-bot-since_file"
   -- case command of

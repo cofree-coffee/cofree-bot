@@ -1,44 +1,47 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE StandaloneKindSignatures #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 module CofreeBot.Plugins.Calculator.Language where
 
 import Control.Applicative
 import Data.Attoparsec.Text as A
 import Data.Bifunctor
 import Data.Char (isAlpha, isDigit)
-import Data.Foldable (asum)
+import Data.Foldable (asum, Foldable (fold))
 import Data.Functor
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
+import Control.Monad.Error.Class
+import Control.Monad.State.Class
+import Control.Monad.RWS.Class
+import Control.Monad.Writer
+import Control.Monad.State
+import Control.Monad.Except
+import Data.Coerce
+import Data.Kind
 
-data CalcError = LookupError T.Text
-  deriving Show
-
-type CalcState = Map.Map T.Text Int
-
-data CalcResp = Log Expr Int | LogErr T.Text
-
-type VarName = T.Text
-
-data Expr = Var VarName | Val Int | Add Expr Expr | Mult Expr Expr | Neg Expr
-
-data Statement = Let T.Text Expr | StdOut Expr | StdErr T.Text
-
-type Program = NE.NonEmpty Statement
-
-instance Show Expr where
-  showsPrec p = \case
-    Var x -> shows $ T.unpack x
-    Val n -> shows n
-    x `Add` y -> showParen (p >= 6) $ (showsPrec 6 x) . (" + " ++) . (showsPrec 6 y)
-    x `Mult` y -> showParen (p >= 7) $ (showsPrec 7 x) . (" * " ++) . (showsPrec 7 y)
-    Neg x -> shows $ "- " <> show x
+--------------------------------------------------------------------------------
+-- Utils
+--------------------------------------------------------------------------------
 
 (|*|) :: Applicative f => f a -> f b -> f (a, b)
 (|*|) = liftA2 (,)
 
 infixr |*|
+
+type (/\) = (,)
+
+infixr /\
+
+type (\/) = Either
+
+infixr \/
+
+type a \?/ b = Maybe (Either a b)
 
 pattern (:&) :: a -> b -> (a, b)
 pattern a :& b = (a, b)
@@ -50,46 +53,141 @@ infixr :&
 infixOp :: Parser a -> Parser b -> Parser T.Text -> Parser (a, b)
 infixOp p1 p2 pop =
   "(" |*| p1 |*| some space |*| pop |*| some space |*| p2 |*| ")" <&>
-    \(_oparen :& e1 :& _space :& _plus :& _morespace :& e2 :& _cparen) -> (e1, e2)
+    \(_ :& e1 :& _ :& _ :& _ :& e2 :& _) -> (e1, e2)
 
-parseVarName :: Parser VarName
-parseVarName = fmap (\(l, ls) -> l `T.cons` ls) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
+type Transformers
+  :: [(Type -> Type) -> Type -> Type]
+  -> (Type -> Type) -> Type -> Type
+type family Transformers ts m
+  where
+  Transformers '[] m = m
+  Transformers (t ': ts) m = t (Transformers ts m)
 
-parseExpr :: Parser Expr
-parseExpr = asum
-  [ fmap (uncurry Add) $ (parseExpr `infixOp` parseExpr) $ "+"
-  , fmap (uncurry Mult) $ (parseExpr `infixOp` parseExpr) $ "*"
-  , Neg <$> ("-" *> parseExpr)
+--------------------------------------------------------------------------------
+-- Parsing types
+--------------------------------------------------------------------------------
+
+type VarName = T.Text
+
+data Expr
+  = Var VarName
+  | Val Int
+  | Add Expr Expr
+  | Mult Expr Expr
+  | Neg Expr
+
+data Statement
+  = Let T.Text Expr
+  | StdOut Expr
+  deriving Show
+
+type Program = NE.NonEmpty Statement
+
+--------------------------------------------------------------------------------
+-- Printer
+--------------------------------------------------------------------------------
+
+instance Show Expr where
+  showsPrec p = \case
+    Var x -> shows $ T.unpack x
+    Val n -> shows n
+    x `Add` y -> showParen (p >= 6) $ (showsPrec 6 x) . (" + " ++) . (showsPrec 6 y)
+    x `Mult` y -> showParen (p >= 7) $ (showsPrec 7 x) . (" * " ++) . (showsPrec 7 y)
+    Neg x -> shows $ "- " <> show x
+
+--------------------------------------------------------------------------------
+-- Parser
+--------------------------------------------------------------------------------
+
+varNameP :: Parser VarName
+varNameP = fmap (uncurry T.cons) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
+
+exprP :: Parser Expr
+exprP = asum
+  [ fmap (uncurry Add) $ (exprP `infixOp` exprP) $ "+"
+  , fmap (uncurry Mult) $ (exprP `infixOp` exprP) $ "*"
+  , Neg <$> ("-" *> exprP)
   , fmap Val $ decimal
-  , fmap Var $ parseVarName
+  , fmap Var $ varNameP
   ]
+
+statementP :: Parser Statement
+statementP = asum
+  [ varNameP |*| some space |*| ":=" |*| some space |*| exprP <&>
+    \(var :& _ :& _ :& _ :& expr) -> Let var expr
+  , StdOut <$> exprP
+  ]
+
+programP :: Parser Program
+programP =
+  statementP |*| ([] <$ endOfInput <|> endOfLine *> statementP `sepBy` endOfLine) <&>
+  uncurry (NE.:|)
 
 -- $> import Data.Attoparsec.Text
 
--- $> parseOnly parseExpr "((11 + x1) + 13)"
+-- $> import CofreeBot.Plugins.Calculator.Language
 
-parseStmt :: Parser Statement
-parseStmt = asum
-  [ parseVarName |*| some space |*| ":=" |*| some space |*| parseExpr
-    <&> \(var :& _ :& _ :& _ :& expr) -> Let var expr
-  , StdOut <$> parseExpr
-  ]
+-- $> parseOnly exprP "((11 + x1) + 13)"
 
-parseProgram :: Parser Program
-parseProgram =
-  parseStmt |*| (([] <$ endOfInput) <|> endOfLine *> parseStmt `sepBy` endOfLine)
-  <&> uncurry (NE.:|)
+-- $> parseOnly programP "x := ((11 + 12) + 13)\nx + 1"
 
--- $> parseOnly parseProgram "x := ((11 + 12) + 13)\nx + 1"
+data ParseError = ParseError
+  { parseInput :: T.Text
+  , parseError :: T.Text
+  }
 
-data ParseError = ParseError String
+parseProgram :: T.Text -> Either ParseError Program
+parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt
 
-printTxt :: Either CalcError [CalcResp] -> [T.Text]
-printTxt = \case
-  Left err -> pure $ T.pack $ show err
-  Right resps -> resps <&> \case
-    Log expr n -> T.pack $ show expr <> " = " <> show n
-    LogErr err -> err
+--------------------------------------------------------------------------------
+-- Evaluation types
+--------------------------------------------------------------------------------
 
-parseTxt :: T.Text -> Either ParseError Program
-parseTxt = first ParseError . parseOnly parseProgram
+data CalcError = LookupError T.Text
+  deriving Show
+
+type CalcState = Map.Map T.Text Int
+
+data CalcResp
+  = Log Expr Int
+
+--------------------------------------------------------------------------------
+-- Evaluator
+--------------------------------------------------------------------------------
+
+type CalculatorM = Transformers
+  [ WriterT [CalcResp]
+  , ExceptT CalcError
+  , StateT CalcState
+  ] IO
+
+-- | Evaluate an expression in our arithmetic language
+eval :: Expr -> CalculatorM Int
+eval = \case
+  Var bndr -> do
+    s <- get
+    maybe (throwError $ LookupError bndr) pure $ Map.lookup bndr s
+  Val i -> pure i
+  Add x y -> liftA2 (+) (eval x) (eval y)
+  Mult x y -> liftA2 (*) (eval x) (eval y)
+  Neg x -> fmap negate $ eval x
+
+-- | Interpret a language statement into response.
+interpretStatement :: Statement -> CalculatorM ()
+interpretStatement = \case
+  Let bndr expr -> do
+    val <- eval expr
+    modify (Map.insert bndr val)
+  StdOut expr -> do
+    val <- eval expr
+    tell [Log expr val]
+
+-- | Interpret an entire program
+interpretProgram :: Program -> CalculatorM ()
+interpretProgram = fmap fold . traverse interpretStatement
+
+interpretProgram' :: Program -> CalcState -> IO (Either CalcError ((), [CalcResp]), CalcState)
+interpretProgram' = coerce interpretProgram
+
+interpretProgram'' :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
+interpretProgram'' = (fmap . fmap . first . fmap) snd . interpretProgram'
