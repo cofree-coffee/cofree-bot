@@ -4,9 +4,9 @@ import CofreeBot
 import Control.Exception
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
-import Network.Matrix.Client
-import Options.Applicative qualified as Opt
-import OptionsParser
+--import Network.Matrix.Client
+--import Options.Applicative qualified as Opt
+--import OptionsParser
 import System.IO.Error (isDoesNotExistError)
 
 {-
@@ -34,7 +34,8 @@ readFileMaybe path =
 
 main :: IO ()
 main = do
-  runSimpleBot arithBot' mempty
+  --runSimpleBot simpleCalculatorBot mempty
+  runSimpleBot (calculatorBotToSimpleBot calculatorBot) mempty
   -- command <- Opt.execParser parserInfo
   -- since <- readFileMaybe "/tmp/cofree-bot-since_file"
   -- case command of

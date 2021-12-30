@@ -16,6 +16,7 @@ common common-settings
     DerivingVia
     FlexibleContexts
     FlexibleInstances
+    GeneralizedNewtypeDeriving
     InstanceSigs
     ImportQualifiedPost
     LambdaCase
@@ -62,7 +63,10 @@ library
   exposed-modules:
       CofreeBot
     , CofreeBot.Session
+    , CofreeBot.Bot
     , CofreeBot.Plugins
+    , CofreeBot.Plugins.Calculator
+    , CofreeBot.Plugins.Calculator.Language
     , Network.Matrix.Client.Lens
   build-depends:
     , aeson
