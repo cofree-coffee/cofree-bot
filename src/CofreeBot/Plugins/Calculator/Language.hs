@@ -182,12 +182,6 @@ interpretStatement = \case
     val <- eval expr
     tell [Log expr val]
 
--- | Interpret an entire program
-interpretProgram :: Program -> CalculatorM ()
-interpretProgram = fmap fold . traverse interpretStatement
-
-interpretProgram' :: Program -> CalcState -> IO (Either CalcError ((), [CalcResp]), CalcState)
-interpretProgram' = coerce interpretProgram
-
-interpretProgram'' :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
-interpretProgram'' = (fmap . fmap . first . fmap) snd . interpretProgram'
+interpretProgram :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
+interpretProgram =
+  (fmap . fmap . first . fmap) (snd @()) . coerce . fmap fold . traverse interpretStatement

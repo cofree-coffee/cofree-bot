@@ -49,7 +49,7 @@ type CalculatorBot = Bot IO CalcState Program (Either CalcError [CalcResp])
 
 calculatorBot :: CalculatorBot
 calculatorBot = Bot $ \program state ->
-  fmap (uncurry BotAction) $ interpretProgram'' program state
+  fmap (uncurry BotAction) $ interpretProgram program state
 
 parseErrorBot :: Applicative m => Bot m s ParseError T.Text
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
