@@ -1,4 +1,3 @@
-{-# LANGUAGE TypeOperators #-}
 module CofreeBot.Plugins.Calculator where
 
 import CofreeBot.Bot
@@ -7,7 +6,8 @@ import Data.Profunctor
 import Data.Text qualified as T
 import Data.Functor
 
-type CalculatorBot = Bot IO CalcState Program (Either CalcError [CalcResp])
+type CalculatorOutput = Either CalcError [CalcResp]
+type CalculatorBot = Bot IO CalcState Program CalculatorOutput
 
 calculatorBot :: CalculatorBot
 calculatorBot = Bot $ \program state ->
@@ -17,10 +17,10 @@ parseErrorBot :: Applicative m => Bot m s ParseError T.Text
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
   "Failed to parse msg: \"" <> parseInput <> "\". Error message was: \"" <> parseError <> "\"."
 
-simpleCalculatorBot :: SimpleBot CalcState
-simpleCalculatorBot
+simplifyCalculatorBot :: Applicative m => Bot m s Program (Either CalcError [CalcResp]) -> Bot m s T.Text [T.Text]
+simplifyCalculatorBot bot
   = dimap parseProgram same
-  $ rmap (:[]) parseErrorBot \/ rmap printTxt calculatorBot
+  $ rmap (:[]) parseErrorBot \/ rmap printTxt bot
   where
   printTxt :: Either CalcError [CalcResp] -> [T.Text]
   printTxt = \case

@@ -3,9 +3,11 @@ module CofreeBot.Bot where
 import CofreeBot.Utils
 import Control.Arrow qualified as Arrow
 import Control.Category qualified as Cat
+import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.Bifunctor
 import Data.Foldable
 import Data.Functor ((<&>))
+import Data.Kind
 import Data.Map.Strict qualified as Map
 import Data.Profunctor
 import Data.Text qualified as T
@@ -18,8 +20,10 @@ data BotAction s o = BotAction { responses :: o, nextState :: s }
 instance Bifunctor BotAction where
   bimap f g (BotAction a b) = BotAction (g a) (f b)
 
+type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
+type Bot :: KBot
 newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
 
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
@@ -99,6 +103,9 @@ runSimpleBot bot = go
     traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
     go nextState
 
+fixedPoint :: Bot m s i o -> s -> i -> m o
+fixedPoint (Bot bot) = undefined
+
 --TODO: For Mapping Simple Bots to Matrix Bots
 -- parseRoomEvent :: RoomEvent -> Either ParseError Program
 -- parseRoomEvent roomEvent =
@@ -121,14 +128,30 @@ runSimpleBot bot = go
 
 data SessionState s = SessionState { sessions :: Map.Map Int s }
 
-type SessionBot m s i o = Bot m (SessionState s) (Int, i) o
+type Sessionized :: KBot -> KBot
+type Sessionized bot m s i o = bot m s (SessionInput i) (Int, o)
 
--- | Lift a 'Bot' into a 'SessionBot'.
-mkSessionBot :: (Monoid s, Monad m) => Bot m s i o -> Bot m (SessionState s) (Int, i) (Int, o)
-mkSessionBot (Bot bot) = Bot $ \(k, i) states -> do
-  let state = findOrCreateSession states k
-  BotAction {..} <- bot i state
-  pure $ BotAction { responses = (k, responses), nextState = SessionState $ Map.insert k nextState (sessions states) }
+data SessionInput i = StartSession | InteractWithSession Int i
+data SessionOutput o = SessionOutput Int o
+
+parseSessionInput :: Parser i -> Parser (SessionInput i)
+parseSessionInput = undefined
+
+runSession :: (Bot m s i o -> Bot m s T.Text T.Text) -> Sessionized Bot m (SessionState s) i o -> Bot m (SessionState s) T.Text T.Text
+runSession f bot = Bot $ \i (SessionState s) -> do
+  case parseOnly (parseSessionInput undefined) i of
+    Left err -> _
+    Right sessionInput -> _
+
+type Serialize m s i o = Bot m s (SessionInput i) (SessionOutput o) -> Sessionized Bot m s (SessionInput T.Text) (SessionOutput T.Text)
+
+-- | Lift a 'Bot' into a 'SessionBot'. 
+sessionize :: (Monoid s, Monad m) => Bot m s i o -> Sessionized Bot m (SessionState s) i o
+sessionize = _
+--sessionize (Bot bot) = Bot $ \(k, i) states -> do
+--  let state = findOrCreateSession states k
+--  BotAction {..} <- bot i state
+--  pure $ BotAction { responses = (k, responses), nextState = SessionState $ Map.insert k nextState (sessions states) }
 
 findOrCreateSession :: Monoid s => SessionState s -> Int -> s
 findOrCreateSession states k =

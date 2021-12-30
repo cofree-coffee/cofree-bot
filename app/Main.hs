@@ -9,6 +9,7 @@ import Data.Text.IO qualified as T
 --import OptionsParser
 import System.IO.Error (isDoesNotExistError)
 
+import CofreeBot.Plugins.Calculator.Language
 {-
 *This is a very scrappy rough draft*
 
@@ -23,6 +24,7 @@ Initial Goals:
 - [ ] Plugin Architecture
 - [ ] Administrative inteface (via private message?)
 - [ ] Automated Build and Deploy to server
+- [ ] Add a test suite
 -}
 
 readFileMaybe :: String -> IO (Maybe T.Text)
@@ -34,8 +36,9 @@ readFileMaybe path =
 
 main :: IO ()
 main = do
-  --runSimpleBot simpleCalculatorBot mempty
-  runSimpleBot simpleCalculatorBot mempty
+  runSimpleBot (_ $ sessionize $ calculatorBot) mempty
+  --runSimpleBot (runCalculatorBot $ runSession $ sessionize $ calculatorBot) mempty
+
   -- command <- Opt.execParser parserInfo
   -- since <- readFileMaybe "/tmp/cofree-bot-since_file"
   -- case command of
