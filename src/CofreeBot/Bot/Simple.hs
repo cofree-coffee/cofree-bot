@@ -10,14 +10,14 @@ import System.IO ( stdout, hFlush )
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.
-type SimpleBot s = Bot IO s T.Text [T.Text]
+type SimpleBot m s = Bot m s T.Text T.Text
 
 -- | Lift a 'SimpleBot' into a 'MatrixBot'
-liftSimpleBot :: ((RoomID, Event) -> T.Text) -> (T.Text -> (RoomID, Event)) -> SimpleBot s -> MatrixBot s
-liftSimpleBot to from = dimap to (fmap from)
+liftSimpleBot :: Functor m => ((RoomID, Event) -> T.Text) -> (T.Text -> (RoomID, Event)) -> SimpleBot m s -> MatrixBot m s
+liftSimpleBot to from = dimap to from
 
 -- | An evaluator for running 'SimpleBots' in 'IO'
-runSimpleBot :: forall s. SimpleBot s -> s -> IO ()
+runSimpleBot :: forall s. SimpleBot IO s -> s -> IO ()
 runSimpleBot bot = go
   where
   go :: s -> IO ()

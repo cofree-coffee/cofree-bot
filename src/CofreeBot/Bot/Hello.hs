@@ -3,63 +3,59 @@ module CofreeBot.Bot.Hello where
 
 import Control.Lens hiding (to, from)
 import CofreeBot.Bot
+import CofreeBot.Bot.Context
 import CofreeBot.Bot.Matrix
 import CofreeBot.Bot.Simple
 import Data.Text qualified as T
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 
--- | This is the simplest example of a bot. It recieves a '(RoomID,
--- Text)' and sends a 'Maybe (RoomID, Text)' and has no state.
-type HelloBot m = Bot m () (RoomID, T.Text) (Maybe (RoomID, T.Text))
+-- | This is the simplest example of a bot. It recieves a 'Text' and
+-- sends a 'Maybe Text' and has no state.
+type HelloBot m = Bot m () T.Text T.Text
 
--- | We can constructi it explicitly with the 'Bot' data constructor
+-- | We can construct it explicitly with the 'Bot' data constructor
 helloWorldBot :: Applicative m => HelloBot m
-helloWorldBot = Bot $ \(rid, msg) _ -> do
+helloWorldBot = Bot $ \msg _ -> do
   let name = "cofree-bot"
   if name `T.isInfixOf` msg
-     then pure $ BotAction (Just (rid, "Are you talking to me, punk?")) ()
-     else pure $ BotAction Nothing () 
+     then pure $ BotAction ["Are you talking to me, punk?"] ()
+     else pure $ BotAction mempty () 
 
 -- | We can simplify the implementation using the 'pureStatelessBot'
 -- combinator.
 helloWorldBot' :: Applicative m => HelloBot m
-helloWorldBot' = pureStatelessBot $ \(rid, msg) ->
+helloWorldBot' = pureStatelessBot $ \msg ->
   let name = "cofree-bot"
   in if name `T.isInfixOf` msg
-     then Just (rid, "Are you talking to me, punk?")
-     else Nothing
+     then ["Are you talking to me, punk?"]
+     else mempty
 
--- | In order to run this bot we need to lift it into a 'Bot m ()
--- Event [Event]'
---liftHelloworldBot :: Functor m => HelloBot m -> Bot m () (RoomID, Event) [(RoomID, Event)]
-liftHelloBot :: Functor m => HelloBot m -> Bot m () (RoomID, Event) [(RoomID, Event)]
+-- | Lifting into a 'SimpleBot' is a good litmus test to see if you
+-- have an abstration leak. In this case 'HelloBot ~ SimpleBot' so we
+-- are all good.
+simpleLiftHelloBot :: HelloBot IO -> SimpleBot IO ()
+simpleLiftHelloBot = id
+
+-- | We can lift 'HelloBot' to operate on matrix 'Events' using 'dimap'
+liftHelloBot :: Functor m => HelloBot m -> Bot m () Event Event
 liftHelloBot = dimap to from
   where
-    viewBody :: Event -> T.Text
-    viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+    to :: Event -> T.Text
+    to = view (_EventRoomMessage . _RoomMessageText . _mtBody)
 
-    to :: (RoomID, Event) -> (RoomID, T.Text)
-    to = over _2 viewBody
-
-    from :: Maybe (RoomID, T.Text) -> [(RoomID, Event)]
-    from = maybe [] $ \(rid, msg) ->
-      pure (rid, (EventRoomMessage $ mkMsg msg))
+    from :: T.Text -> Event
+    from msg = EventRoomMessage $ mkMsg msg
 
     mkMsg :: T.Text -> RoomMessage
     mkMsg msg = RoomMessageText $ MessageText msg TextType Nothing Nothing
 
--- | Lifting into a 'SimpleBot' is a good litmus test to see if you
--- have an abstration leak.
-simpleLiftHelloBot :: HelloBot IO -> SimpleBot ()
-simpleLiftHelloBot = dimap to from
-  where
-    to :: T.Text -> (RoomID, T.Text)
-    to msg = (error "Uh oh! A Hello Bot Shouldn't need to think about RoomIDs", msg)
-    from :: Maybe (RoomID, T.Text) -> [T.Text]
-    from = \case
-      Nothing -> []
-      Just (_, msg) -> [msg]
+-- | We can also make 'HelloBot' room aware via the 'mkRoomAware' Bot
+-- Transformer.
+roomAwareHelloBot :: Applicative m => RoomAware Bot m () T.Text T.Text
+roomAwareHelloBot = mkRoomAware helloWorldBot'
 
-helloMatrixBot :: MatrixBot ()
-helloMatrixBot = liftHelloBot helloWorldBot'
+-- | We can convert 'HelloBot' into a complete 'MatrixBot' via
+-- 'mkRoomAware . liftHelloBot'
+helloMatrixBot :: MatrixBot IO ()
+helloMatrixBot = mkRoomAware $ liftHelloBot helloWorldBot'
