@@ -76,13 +76,13 @@ library
     , CofreeBot.Bot.Hello
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple
-    , CofreeBot.Session
     , CofreeBot.Utils
     , Network.Matrix.Client.Lens
   build-depends:
     , aeson
     , attoparsec
     , containers
+    , hint
     , lens
     , mtl
     , pretty-simple
