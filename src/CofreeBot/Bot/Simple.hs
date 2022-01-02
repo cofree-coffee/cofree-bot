@@ -1,20 +1,20 @@
 module CofreeBot.Bot.Simple where
 
 import CofreeBot.Bot ( BotAction(..), Bot(..) )
-import CofreeBot.Bot.Matrix ( MatrixBot )
+--import CofreeBot.Bot.Matrix ( MatrixBot )
 import Data.Foldable ( traverse_ )
-import Data.Profunctor ( dimap )
+--import Data.Profunctor ( dimap )
 import Data.Text qualified as T
-import Network.Matrix.Client ( RoomID, Event )
+--import Network.Matrix.Client ( RoomID, Event )
 import System.IO ( stdout, hFlush )
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.
-type SimpleBot m s = Bot m s T.Text T.Text
+type SimpleBot m s = Bot m s T.Text [T.Text]
 
 -- | Lift a 'SimpleBot' into a 'MatrixBot'
-liftSimpleBot :: Functor m => ((RoomID, Event) -> T.Text) -> (T.Text -> (RoomID, Event)) -> SimpleBot m s -> MatrixBot m s
-liftSimpleBot to from = dimap to from
+--liftSimpleBot :: Functor m => ((RoomID, Event) -> T.Text) -> (T.Text -> (RoomID, Event)) -> SimpleBot m s -> MatrixBot m s
+--liftSimpleBot to from = dimap to _ -- (fmap from)
 
 -- | An evaluator for running 'SimpleBots' in 'IO'
 runSimpleBot :: forall s. SimpleBot IO s -> s -> IO ()

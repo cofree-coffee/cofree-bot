@@ -4,7 +4,7 @@ module CofreeBot.Bot where
 import Control.Arrow qualified as Arrow
 import Control.Category qualified as Cat
 import Control.Lens
-import Control.Monad
+--import Control.Monad
 import CofreeBot.Utils
 import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.Kind
@@ -12,7 +12,7 @@ import Data.Map.Strict qualified as Map
 import Data.Profunctor
 import Data.Text qualified as T
 
-data BotAction s o = BotAction { responses :: [o], nextState :: s }
+data BotAction s o = BotAction { responses :: o, nextState :: s }
   deriving Functor
 
 instance (Semigroup s, Semigroup o) => Semigroup (BotAction s o) where
@@ -23,7 +23,7 @@ instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
   mempty = BotAction {responses = mempty, nextState = mempty}
 
 instance Bifunctor BotAction where
-  bimap f g (BotAction a b) = BotAction (fmap g a) (f b)
+  bimap f g (BotAction a b) = BotAction (g a) (f b)
 
 type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 
@@ -33,11 +33,11 @@ type Bot :: KBot
 newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
 
 instance Monad m => Cat.Category (Bot m s) where
-  id = Bot $ \a s -> pure $ BotAction [a] s
+  id = Bot $ \a s -> pure $ BotAction a s
 
   Bot f . Bot g = Bot $ \a s -> do
-    BotAction bs s' <- g a s
-    foldM (\BotAction{..} b -> f b nextState ) (BotAction mempty s') bs
+    BotAction b s' <- g a s
+    f b s'
 
 instance Monad m => Arrow.Arrow (Bot m s) where
   arr f = rmap f (Cat.id)
@@ -69,10 +69,10 @@ nudge = either
   (\(Bot b) ->
     Bot $ either
       ((fmap . fmap . fmap . fmap) (Just . Left) $ b)
-      (const $ \s -> pure $ BotAction [] s))
+      (const $ \s -> pure $ BotAction Nothing s))
   (\(Bot b) ->
     Bot $ either
-      (const $ \s -> pure $ BotAction [] s)
+      (const $ \s -> pure $ BotAction Nothing s)
       ((fmap . fmap . fmap . fmap) (Just . Right) $ b))
 
 nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
@@ -86,10 +86,10 @@ nudgeRight = nudge . Right
   ((fmap . fmap . fmap) Left . b1)
   ((fmap . fmap . fmap) Right . b2)
 
-pureStatelessBot :: Applicative m => (i -> [o]) -> Bot m s i o
+pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
 
-impureStatelessBot :: Functor m => (i -> m [o]) -> Bot m s i o
+impureStatelessBot :: Functor m => (i -> m o) -> Bot m s i o
 impureStatelessBot f = Bot $ \i s -> fmap (flip BotAction s) $ f i
 
 -- TODO:

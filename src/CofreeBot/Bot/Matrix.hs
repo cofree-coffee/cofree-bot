@@ -9,7 +9,7 @@ import Network.Matrix.Client.Lens
 import System.Random ( newStdGen, randoms )
 
 -- | A 'MatrixBot' maps from 'RoomEvent' to '[RoomEvent]'
-type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, Event)
+type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, [Event])
 
 runMatrixBot :: forall s. ClientSession -> (RoomID, Event) -> MatrixBot IO s -> s -> IO ()
 runMatrixBot session input bot  = go
@@ -19,7 +19,7 @@ runMatrixBot session input bot  = go
     BotAction {..} <- runBot bot input state
     gen <- newStdGen
     let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    traverse_ (uncurry $ sendMessage session (fst input)) $ zip (fmap snd responses) txnIds
+    traverse_ (uncurry $ sendMessage session (fst input)) $ zip (snd responses) txnIds
 
 liftMaybeTextToEvent :: Functor f => Bot f s T.Text (Maybe T.Text) -> Bot f s Event [Event]
 liftMaybeTextToEvent (Bot bot) = Bot $ \i s -> fmap from $ bot (to i) s
