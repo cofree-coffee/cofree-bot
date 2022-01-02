@@ -1,11 +1,13 @@
 module CofreeBot.Bot.Simple where
 
+import Control.Lens (view)
 import CofreeBot.Bot ( BotAction(..), Bot(..) )
 --import CofreeBot.Bot.Matrix ( MatrixBot )
 import Data.Foldable ( traverse_ )
---import Data.Profunctor ( dimap )
+import Data.Profunctor ( dimap, second' )
 import Data.Text qualified as T
---import Network.Matrix.Client ( RoomID, Event )
+import Network.Matrix.Client
+import Network.Matrix.Client.Lens
 import System.IO ( stdout, hFlush )
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
@@ -28,3 +30,18 @@ runSimpleBot bot = go
     BotAction {..} <- runBot bot (T.pack input) state
     traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
     go nextState
+
+liftSimpleBot :: Functor m => SimpleBot m s -> Bot m s (RoomID, Event) (RoomID, [Event])
+liftSimpleBot = second' . dimap to from
+  where
+    viewBody :: Event -> T.Text
+    viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+
+    to :: Event -> T.Text
+    to = viewBody
+
+    from :: [T.Text] -> [Event]
+    from = fmap (EventRoomMessage . mkMsg)
+
+    mkMsg :: T.Text -> RoomMessage
+    mkMsg msg = RoomMessageText $ MessageText msg TextType Nothing Nothing

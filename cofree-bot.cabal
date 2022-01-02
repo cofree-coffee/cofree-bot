@@ -71,6 +71,7 @@ library
     , CofreeBot.Bot.Calculator
     , CofreeBot.Bot.Calculator.Language
     , CofreeBot.Bot.Context
+    , CofreeBot.Bot.GHCI
     , CofreeBot.Bot.Hello
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple

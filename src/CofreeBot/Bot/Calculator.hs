@@ -21,10 +21,10 @@ parseErrorBot = pureStatelessBot $ \ParseError {..} ->
 simplifyCalculatorBot :: Applicative m => Bot m s Program (Either CalcError [CalcResp]) -> Bot m s T.Text [T.Text]
 simplifyCalculatorBot bot
   = dimap parseProgram same
-  $ rmap (:[]) parseErrorBot \/ rmap printTxt bot
-  where
-  printTxt :: Either CalcError [CalcResp] -> [T.Text]
-  printTxt = \case
-    Left err -> pure $ T.pack $ show err
-    Right resps -> resps <&> \case
-      Log e n -> T.pack $ show e <> " = " <> show n
+  $ rmap (:[]) parseErrorBot \/ rmap printCalcOutput bot
+
+printCalcOutput :: Either CalcError [CalcResp] -> [T.Text]
+printCalcOutput = \case
+  Left err -> pure $ T.pack $ show err
+  Right resps -> resps <&> \case
+    Log e n -> T.pack $ show e <> " = " <> show n

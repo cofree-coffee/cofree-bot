@@ -6,11 +6,8 @@ import Control.Category qualified as Cat
 import Control.Lens
 --import Control.Monad
 import CofreeBot.Utils
-import Data.Attoparsec.Text (Parser, parseOnly)
 import Data.Kind
-import Data.Map.Strict qualified as Map
 import Data.Profunctor
-import Data.Text qualified as T
 
 data BotAction s o = BotAction { responses :: o, nextState :: s }
   deriving Functor
@@ -116,43 +113,3 @@ threadFirst = plens _2
 threadSecond :: Applicative m => Bot m s i o -> Bot m s (i, x) (o, x)
 threadSecond = plens _1
 
---------------------------------------------------------------------------------
--- Session
---------------------------------------------------------------------------------
--- TODO:
-
-data SessionState s = SessionState { sessions :: Map.Map Int s }
-
-type Sessionized :: KBot -> KBot
-type Sessionized bot m s i o = bot m s (SessionInput i) (Int, o)
-
-data SessionInput i = StartSession | InteractWithSession Int i
-data SessionOutput o = SessionOutput Int o
-
-parseSessionInput :: Parser i -> Parser (SessionInput i)
-parseSessionInput = undefined
-
-runSession :: (Bot m s i o -> Bot m s T.Text T.Text) -> Sessionized Bot m (SessionState s) i o -> Bot m (SessionState s) T.Text T.Text
-runSession f bot = Bot $ \i (SessionState s) -> do
-  case parseOnly (parseSessionInput undefined) i of
-    Left err -> error "Todo"
-    Right sessionInput -> error "Todo"
-
-type Serialize m s i o = Bot m s (SessionInput i) (SessionOutput o) -> Sessionized Bot m s (SessionInput T.Text) (SessionOutput T.Text)
-
--- | Lift a 'Bot' into a 'SessionBot'. 
-sessionize :: (Monoid s, Monad m) => Bot m s i o -> Sessionized Bot m (SessionState s) i o
-sessionize = error "Todo"
---sessionize (Bot bot) = Bot $ \(k, i) states -> do
---  let state = findOrCreateSession states k
---  BotAction {..} <- bot i state
---  pure $ BotAction { responses = (k, responses), nextState = SessionState $ Map.insert k nextState (sessions states) }
-
-findOrCreateSession :: Monoid s => SessionState s -> Int -> s
-findOrCreateSession states k =
-  case findSession states k of
-    Just s -> s
-    Nothing -> mempty
-
-findSession :: SessionState s -> Int -> Maybe s
-findSession (SessionState states) k = Map.lookup k states

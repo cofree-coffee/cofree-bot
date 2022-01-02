@@ -1,6 +1,8 @@
+{-# OPTIONS_GHC -Wno-typed-holes #-}
 module Main where
 
 import CofreeBot
+import CofreeBot.Bot.Calculator.Language
 import Control.Exception
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
@@ -12,15 +14,7 @@ import System.IO.Error (isDoesNotExistError)
 {-
 *This is a very scrappy rough draft*
 
-Initial Goals:
-
-- [x] Synchronous, singlethreaded operation
-- [x] Joins a list of rooms provided at startup
-- [x] Listens for its name and responds with '@sender did you say my
-  name?' in the appropriate channel
-- [x] Tracks what messages it has already consumed and uses that to
-      avoid sending duplicate responses after restarting
-- [x] Core Bot Architecture
+TODO:
 - [ ] Bot Lifting Into MatrixBot
   - [x] Prototype
   - [ ] Handle Full RoomEvents
@@ -32,26 +26,18 @@ Initial Goals:
 - [ ] Administrative interface (via private message?)
 -}
 
-readFileMaybe :: String -> IO (Maybe T.Text)
-readFileMaybe path =
-  (fmap Just $ T.readFile path) `catch` \e ->
-    if isDoesNotExistError e
-      then pure Nothing
-      else throwIO e
-
 main :: IO ()
 main = do
-  --runSimpleBot (simplifyCalculatorBot calculatorBot) mempty
+  --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
   --runSimpleBot (runCalculatorBot $ runSession $ sessionize $ calculatorBot) mempty
-
   command <- Opt.execParser parserInfo
-  since <- readFileMaybe "/tmp/cofree-bot-since_file"
+  let bot = liftSimpleBot $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
   case command of
     LoginCmd cred -> do
       session <- login cred
       --let cfg = Config session cache respChan
       --connectAndSend cfg
-      runListener session since
+      runMatrixBot session bot mempty
     TokenCmd TokenCredentials{..} -> do
       session <- createSession (getMatrixServer matrixServer) matrixToken
-      runListener session since
+      runMatrixBot session bot mempty

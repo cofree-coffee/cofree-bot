@@ -7,6 +7,7 @@ import CofreeBot.Bot.Context
 import CofreeBot.Bot.Matrix
 import CofreeBot.Bot.Simple
 import Data.Text qualified as T
+import Data.Profunctor
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 
@@ -61,12 +62,6 @@ liftHelloBot = dimap to from
     mkMsg :: T.Text -> RoomMessage
     mkMsg msg = RoomMessageText $ MessageText msg TextType Nothing Nothing
 
--- | We can also make 'HelloBot' room aware via the 'mkRoomAware' Bot
--- Transformer.
-roomAwareHelloBot :: Applicative m => RoomAware Bot m () T.Text (Maybe T.Text)
-roomAwareHelloBot = mkRoomAware helloWorldBot'
-
--- | We can convert 'HelloBot' into a complete 'MatrixBot' via
--- 'mkRoomAware . liftHelloBot'
+-- | We can convert 'HelloBot' into a complete 'MatrixBot'
 helloMatrixBot :: MatrixBot IO ()
 helloMatrixBot = mkRoomAware $ liftHelloBot helloWorldBot'
