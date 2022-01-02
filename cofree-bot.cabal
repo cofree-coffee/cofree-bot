@@ -46,6 +46,7 @@ common common-libraries
     , base >= 2 && < 5
     , matrix-client
     , network-uri
+    , profunctors
     , text
 
 executable cofree-bot
@@ -85,5 +86,4 @@ library
     , lens
     , mtl
     , pretty-simple
-    , profunctors
     , random

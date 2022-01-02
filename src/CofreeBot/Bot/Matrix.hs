@@ -1,8 +1,8 @@
 module CofreeBot.Bot.Matrix where
 
-import Control.Lens qualified as L
 import CofreeBot.Bot ( BotAction(..), Bot(..) )
-import Control.Lens
+import CofreeBot.Bot.Simple
+import Control.Lens hiding ( from, to )
 import Control.Monad.Except
 import Data.Foldable
 import Data.Map.Strict qualified as Map
@@ -13,11 +13,10 @@ import Network.Matrix.Client.Lens
 import Text.Pretty.Simple
 import Data.IORef
 import System.Random ( newStdGen, randoms )
-import System.IO.Error (isDoesNotExistError)
-import Control.Exception (catch, throwIO)
+import System.IO.Error ( isDoesNotExistError )
+import Control.Exception ( catch, throwIO )
 
--- | A 'MatrixBot' maps from 'RoomEvent' to '[RoomEvent]'
-type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, [Event])
+type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
 
 readFileMaybe :: String -> IO (Maybe T.Text)
 readFileMaybe path =
@@ -57,16 +56,16 @@ runMatrixBot session bot s = do
       liftIO $ writeIORef ref nextState
       gen <- newStdGen
       let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-      liftIO $ traverse_ (uncurry $ sendMessage session (fst input)) $ zip (snd responses) txnIds
+      liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session) responses txnIds
 
-liftMaybeTextToEvent :: Functor f => Bot f s T.Text (Maybe T.Text) -> Bot f s Event [Event]
-liftMaybeTextToEvent (Bot bot) = Bot $ \i s -> fmap from $ bot (to i) s
+liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
+liftSimpleBot (Bot bot) = Bot $ \(rid, i) s -> fmap (fmap (fmap ((rid,) . mkMsg))) $ bot (to i) s
   where
-    to :: Event -> T.Text
-    to = L.view (_EventRoomMessage . _RoomMessageText . _mtBody)
+    viewBody :: Event -> T.Text
+    viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
 
-    from :: BotAction s (Maybe T.Text) -> BotAction s [Event]
-    from x = fmap (fmap mkMsg . toList) x
+    to :: Event -> T.Text
+    to = viewBody
 
     mkMsg :: T.Text -> Event
     mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing

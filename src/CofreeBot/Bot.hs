@@ -1,10 +1,8 @@
-{-# LANGUAGE RankNTypes #-}
 module CofreeBot.Bot where
 
 import Control.Arrow qualified as Arrow
 import Control.Category qualified as Cat
 import Control.Lens
---import Control.Monad
 import CofreeBot.Utils
 import Data.Kind
 import Data.Profunctor
@@ -83,6 +81,12 @@ nudgeLeft = nudge . Left
 nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
+(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
+(/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
+  BotAction{..} <- b1 i s
+  BotAction{nextState = nextState', responses = responses'} <- b2 i s'
+  pure $ BotAction (responses, responses') (nextState, nextState')
+
 (\/) :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
 (\/) (Bot b1) (Bot b2) = Bot $ either
   ((fmap . fmap . fmap) Left . b1)
@@ -91,25 +95,5 @@ nudgeRight = nudge . Right
 pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
 
-impureStatelessBot :: Functor m => (i -> m o) -> Bot m s i o
-impureStatelessBot f = Bot $ \i s -> fmap (flip BotAction s) $ f i
-
--- TODO:
-fixedPoint :: Bot m s i o -> s -> i -> m o
-fixedPoint = undefined
-
 mapMaybeBot :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) = Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
-
-type PLens s t a b = forall p. Strong p => p a b -> p s t
-
-plens :: (forall f. Functor f => (a -> f b) -> s -> f t) -> (forall p. Strong p => p a b -> p s t)
-plens vlens =
-  dimap (\s -> (getConst . vlens (Const . id) $ s, s)) (\(b, s) -> (runIdentity . vlens (Identity . const b)) s) . first' 
-
-threadFirst :: Applicative m => Bot m s i o -> Bot m s (x, i) (x, o)
-threadFirst = plens _2
-
-threadSecond :: Applicative m => Bot m s i o -> Bot m s (i, x) (o, x)
-threadSecond = plens _1
-
