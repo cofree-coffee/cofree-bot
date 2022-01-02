@@ -48,6 +48,11 @@ instance Functor f => Profunctor (Bot f s) where
 instance Functor f => Strong (Bot f s) where
   first' (Bot bot) = Bot $ \(a, c) -> fmap (fmap (,c)) . bot a
 
+instance Applicative f => Choice (Bot f s) where
+  left' (Bot bot) = Bot $ either
+    ((fmap . fmap . fmap) Left . bot)
+    (\c s -> pure $ BotAction (Right c) s)
+
 -- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
