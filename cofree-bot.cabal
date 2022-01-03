@@ -11,19 +11,26 @@ category:           matrix, bot
 common common-settings
   default-language:    Haskell2010
   default-extensions:
+    DataKinds
+    DeriveFunctor
     DeriveGeneric
     DerivingVia
     FlexibleContexts
     FlexibleInstances
+    GeneralizedNewtypeDeriving
     InstanceSigs
     ImportQualifiedPost
     LambdaCase
     NamedFieldPuns
     OverloadedStrings
+    PatternSynonyms
     RecordWildCards
     ScopedTypeVariables
+    StandaloneKindSignatures
     TupleSections
     TypeApplications
+    TypeFamilies
+    TypeOperators
 
   ghc-options:
     -Wall
@@ -37,14 +44,9 @@ common common-settings
 common common-libraries
   build-depends:
     , base >= 2 && < 5
-    , aeson
-    , containers
-    , lens
     , matrix-client
-    , mtl
     , network-uri
-    , pretty-simple
-    , random
+    , profunctors
     , text
 
 executable cofree-bot
@@ -52,7 +54,6 @@ executable cofree-bot
     , common-libraries
     , common-settings
   main-is: Main.hs
-  -- other-extensions:
   hs-source-dirs: app
   build-depends:
       cofree-bot
@@ -67,7 +68,22 @@ library
   hs-source-dirs: src
   exposed-modules:
       CofreeBot
-    , CofreeBot.Session
-    , CofreeBot.Plugins
+    , CofreeBot.Bot
+    , CofreeBot.Bot.Calculator
+    , CofreeBot.Bot.Calculator.Language
+    , CofreeBot.Bot.Context
+    , CofreeBot.Bot.GHCI
+    , CofreeBot.Bot.Hello
+    , CofreeBot.Bot.Matrix
+    , CofreeBot.Bot.Simple
+    , CofreeBot.Utils
     , Network.Matrix.Client.Lens
-  -- other-modules:
+  build-depends:
+    , aeson
+    , attoparsec
+    , containers
+    , hint
+    , lens
+    , mtl
+    , pretty-simple
+    , random

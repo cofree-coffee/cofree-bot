@@ -1,6 +1,14 @@
-module CofreeBot ( module CofreeBot.Session
-                 , module CofreeBot.Plugins
+module CofreeBot ( module Bot
+                 , module Calculator
+                 , module Context
+                 , module Hello
+                 , module Matrix
+                 , module Simple
                  ) where
 
-import CofreeBot.Session
-import CofreeBot.Plugins
+import CofreeBot.Bot as Bot
+import CofreeBot.Bot.Context as Context
+import CofreeBot.Bot.Calculator as Calculator
+import CofreeBot.Bot.Hello as Hello
+import CofreeBot.Bot.Matrix as Matrix
+import CofreeBot.Bot.Simple as Simple

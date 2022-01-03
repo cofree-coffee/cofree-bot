@@ -13,7 +13,7 @@ parseLogin :: Opt.Parser LoginCredentials
 parseLogin =
   LoginCredentials <$> parseUsername
                    <*> parsePassword
-                   <*> parseServer
+                   <*> fmap getMatrixServer parseServer
                    <*> parseDeviceId
                    <*> parseInitialDeviceName
 
@@ -54,8 +54,10 @@ data TokenCredentials = TokenCredentials
   , matrixServer :: MatrixServer
   }
 
+newtype MatrixServer = MatrixServer { getMatrixServer :: T.Text }
+
 parseTokenCredentials :: Opt.Parser TokenCredentials
-parseTokenCredentials = TokenCredentials <$> parseToken <*> fmap MatrixServer parseServer
+parseTokenCredentials = TokenCredentials <$> parseToken <*> parseServer
 
 parseToken :: Opt.Parser MatrixToken
 parseToken =
@@ -64,9 +66,9 @@ parseToken =
     <> Opt.metavar "MATRIX_AUTH_TOKEN"
     <> Opt.help "Matrix authentication token")
 
-parseServer :: Opt.Parser T.Text
+parseServer :: Opt.Parser MatrixServer
 parseServer =
-  Opt.strOption
+  fmap MatrixServer $ Opt.strOption
       (Opt.long "homeserver"
     <> Opt.metavar "MATRIX_HOMESERVER"
     <> Opt.help "Matrix Homeserver")
@@ -79,8 +81,8 @@ data Command = LoginCmd LoginCredentials | TokenCmd TokenCredentials
 
 mainParser :: Opt.Parser Command
 mainParser = Opt.subparser
-  ( Opt.command "login" (Opt.info (fmap LoginCmd parseLogin) (Opt.progDesc "Login with username/password"))
-    <> Opt.command "token" (Opt.info (fmap TokenCmd parseTokenCredentials) (Opt.progDesc "Login with an existing auth token"))
+  ( Opt.command "gen-token" (Opt.info (fmap LoginCmd parseLogin) (Opt.progDesc "Generate a token from a username/password"))
+    <> Opt.command "run" (Opt.info (fmap TokenCmd parseTokenCredentials) (Opt.progDesc "Run a bot with an auth token"))
   )
 
 parserInfo :: Opt.ParserInfo Command
