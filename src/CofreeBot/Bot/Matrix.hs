@@ -25,10 +25,10 @@ readFileMaybe path =
       then pure Nothing
       else throwIO e
 
-runMatrixBot :: forall s. ClientSession -> MatrixBot IO s -> s -> IO ()
-runMatrixBot session bot s = do
+runMatrixBot :: forall s. ClientSession -> String -> MatrixBot IO s -> s -> IO ()
+runMatrixBot session cache bot s = do
   ref <- newIORef s
-  since <- readFileMaybe "/tmp/cofree-bot-since_file"
+  since <- readFileMaybe $ cache <> "/since_file"
   void $ runExceptT $ do
     userId <- ExceptT $ getTokenOwner session
     filterId <- ExceptT $ createFilter session userId messageFilter
@@ -45,7 +45,7 @@ runMatrixBot session bot s = do
            events :: [(RoomID, Event)]
            events = Map.foldMapWithKey (\rid es -> fmap ((RoomID rid,) . view _reContent) es) roomEvents
 
-       liftIO $ writeFile "/tmp/cofree-bot-since_file" (T.unpack newSince)
+       liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
        pPrint roomEvents
        traverse_ (go ref) events
   where
