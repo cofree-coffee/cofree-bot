@@ -58,6 +58,7 @@ executable cofree-bot
   build-depends:
       cofree-bot
     , optparse-applicative
+    , xdg-basedir
   other-modules:
     OptionsParser
 
