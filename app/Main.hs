@@ -8,6 +8,7 @@ import Network.Matrix.Client
 import Options.Applicative qualified as Opt
 import OptionsParser
 import System.Environment ( getEnv, lookupEnv )
+import System.Environment.XDG.BaseDir ( getUserCacheDir )
 {-
 *This is a very scrappy rough draft*
 
@@ -30,14 +31,14 @@ main :: IO ()
 main = do
   --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
   command <- Opt.execParser parserInfo
-  xdg_cache <- findXdgCache
+  xdgCache <- getUserCacheDir "cofree-bot"
   let calcBot = liftSimpleBot $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
       helloBot = helloMatrixBot
       bot = rmap (uncurry (<>)) $ calcBot /\ helloBot
   case command of
     LoginCmd cred -> do
       session <- login cred
-      runMatrixBot session xdg_cache bot mempty
+      runMatrixBot session xdgCache bot mempty
     TokenCmd TokenCredentials{..} -> do
       session <- createSession (getMatrixServer matrixServer) matrixToken
-      runMatrixBot session xdg_cache bot mempty
+      runMatrixBot session xdgCache bot mempty
