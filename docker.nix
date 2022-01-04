@@ -7,14 +7,13 @@ in
       name = "cofree.coffee/cofree-bot";
       created = "now";
       contents = [ 
-        pkgs.haskellPackages.cofree-bot
         pkgs.bash
         pkgs.coreutils
         pkgs.cacert
       ];
       config = {
         Cmd = [ 
-          "${pkgs.haskellPackages.cofree-bot}/bin/cofree-bot" "run" "--auth_token" "xyz" "--homeserver" "https://matrix.cofree.coffee"
+          "${pkgs.haskell.lib.justStaticExecutables pkgs.haskellPackages.cofree-bot}/bin/cofree-bot" "run" "--auth_token" "xyz" "--homeserver" "https://matrix.cofree.coffee"
         ];
       };
     };
