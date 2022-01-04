@@ -12,8 +12,9 @@ import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 import Text.Pretty.Simple
 import Data.IORef
-import System.Random ( newStdGen, randoms )
+import System.Directory ( createDirectoryIfMissing )
 import System.IO.Error ( isDoesNotExistError )
+import System.Random ( newStdGen, randoms )
 import Control.Exception ( catch, throwIO )
 
 type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
@@ -28,6 +29,7 @@ readFileMaybe path =
 runMatrixBot :: forall s. ClientSession -> String -> MatrixBot IO s -> s -> IO ()
 runMatrixBot session cache bot s = do
   ref <- newIORef s
+  createDirectoryIfMissing True cache
   since <- readFileMaybe $ cache <> "/since_file"
   void $ runExceptT $ do
     userId <- ExceptT $ getTokenOwner session
