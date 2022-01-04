@@ -87,3 +87,21 @@ library
     , mtl
     , pretty-simple
     , random
+
+test-suite cofree-bot-test
+  import:
+    , common-libraries
+    , common-settings
+
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+
+  build-depends:
+    , attoparsec
+    , cofree-bot
+    , directory
+    , filepath
+    , hspec
+    , hspec-core
+    , hspec-golden

@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FunctionalDependencies #-}
 module CofreeBot.Bot where
 
 import Control.Arrow qualified as Arrow
@@ -6,6 +8,8 @@ import Control.Lens
 import CofreeBot.Utils
 import Data.Kind
 import Data.Profunctor
+import Data.Text qualified as T
+import Control.Monad.State
 
 data BotAction s o = BotAction { responses :: o, nextState :: s }
   deriving Functor
@@ -54,15 +58,76 @@ invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
 
 --------------------------------------------------------------------------------
+-- Testing Harness
+--------------------------------------------------------------------------------
+
+class Monad m => MonadHarness i o m | m -> i o where
+  receive :: m i
+  send :: o -> m ()
+
+data Harness i o x
+  = Receive (i -> Harness i o x)
+  | Send o (Harness i o x)
+  | Done x
+  deriving Functor
+
+instance Applicative (Harness i o) where
+  pure = return
+  (<*>) = ap
+
+instance Monad (Harness i o) where
+  return a = Done a
+  Receive i >>= f = Receive $ (>>= f) . i
+  Send o h >>= f = Send o (h >>= f)
+  Done x >>= f = f x
+
+instance MonadHarness i o (Harness i o) where
+  receive = Receive $ \i -> Done i
+  send o = Send o (Done ())
+    
+runHarness :: MonadHarness i o m => Bot m s i o -> s -> m ()
+runHarness (Bot bot) = go
+  where
+    go s = do
+      i <- receive
+      BotAction{..} <- bot i s
+      send responses
+      go nextState
+
+data HarnessF i o x = ReceiveF (i -> x) | SendF (o, x)
+
+data Coharness i o x = Coharness
+  { inputResult :: (i, Coharness i o x)
+  , outputResult :: o -> Coharness i o x
+  , doneResult :: x
+  }
+
+data CoharnessF i o x = CoharnessF
+  { inputResultF :: (i, x)
+  , outputResultF :: o -> x
+  }
+
+ourOtherFunc :: Coharness i o (Harness i o x) -> x
+ourOtherFunc Coharness {..}
+  = case doneResult of
+      Receive f ->
+        case inputResult of
+          (i, co) -> _ $ f i
+      Send o har -> _
+      Done x -> x
+
+ourFunc :: Harness i o x -> ([o] -> i) -> [o] -> (x, [o])
+ourFunc (Receive r) f os = ourFunc (r $ f os) f os
+ourFunc (Send o h) f os = ourFunc h f (o:os) 
+ourFunc (Done x) _ os = (x, os)
+
+--------------------------------------------------------------------------------
 -- Utils
 --------------------------------------------------------------------------------
 
 class PointedChoice p where
   pleft :: p a b -> p (x \?/ a) (x \?/ b)
   pright :: p a b -> p (a \?/ x) (b \?/ x)
-
--- whatever :: (forall p. Choice p => p a b -> p s t) -> (forall p. PointedChoice p => p a b -> p s t)
--- whatever f pab = _
 
 nudge :: Applicative m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudge = either
