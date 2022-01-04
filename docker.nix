@@ -3,8 +3,9 @@ let
   overlay = import ./overlay.nix { inherit compiler; };
   pkgs = import <nixpkgs> { overlays = [overlay]; };
 in
-  { myAppImage = pkgs.dockerTools.buildImage {
+  { myAppImage = pkgs.dockerTools.buildLayeredImage {
       name = "cofree.coffee/cofree-bot";
+      created = "now";
       contents = [ 
         pkgs.haskellPackages.cofree-bot
         pkgs.bash
