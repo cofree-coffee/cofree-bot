@@ -81,12 +81,14 @@ nudgeLeft = nudge . Left
 nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
+infixr /\
 (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
 (/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
   BotAction{..} <- b1 i s
   BotAction{nextState = nextState', responses = responses'} <- b2 i s'
   pure $ BotAction (responses, responses') (nextState, nextState')
 
+infixr \/
 (\/) :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
 (\/) (Bot b1) (Bot b2) = Bot $ either
   ((fmap . fmap . fmap) Left . b1)

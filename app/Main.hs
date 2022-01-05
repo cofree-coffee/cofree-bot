@@ -25,11 +25,13 @@ TODO:
 main :: IO ()
 main = do
   --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
+  --runSimpleBot (simplifyCoinFlipBot $ coinFlipBot) (mempty @())
   command <- Opt.execParser parserInfo
   xdgCache <- getUserCacheDir "cofree-bot"
   let calcBot = liftSimpleBot $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
       helloBot = helloMatrixBot
-      bot = rmap (uncurry (<>)) $ calcBot /\ helloBot
+      coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
+      bot = rmap (\(x :& y :& z) -> x <> y <> z) $ calcBot /\ helloBot /\ coinFlipBot'
   case command of
     LoginCmd cred -> do
       session <- login cred
