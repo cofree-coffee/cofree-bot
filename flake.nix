@@ -35,5 +35,6 @@
           };
           defaultPackage =
             pkgs.haskellPackages.cofree-bot;
+          packages.docker = import ./docker.nix { inherit pkgs; };
         } // { inherit overlay overlays; });
 }

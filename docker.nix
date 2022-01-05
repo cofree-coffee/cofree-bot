@@ -1,20 +1,19 @@
+{ pkgs }:
 let
   compiler = "ghc8107";
   overlay = import ./overlay.nix { inherit compiler; };
-  pkgs = import <nixpkgs> { overlays = [overlay]; };
 in
-  { myAppImage = pkgs.dockerTools.buildLayeredImage {
-      name = "cofree.coffee/cofree-bot";
+  pkgs.dockerTools.buildLayeredImage {
+      name = "ghcr.io/cofree-coffee/cofree-bot";
       created = "now";
       contents = [ 
         pkgs.bash
-        pkgs.coreutils
         pkgs.cacert
       ];
       config = {
+        Entrypoint = "${pkgs.bash}/bin/bash";
         Cmd = [ 
-          "${pkgs.haskell.lib.justStaticExecutables pkgs.haskellPackages.cofree-bot}/bin/cofree-bot" "run" "--auth_token" "xyz" "--homeserver" "https://matrix.cofree.coffee"
+          "-c" "${pkgs.haskell.lib.justStaticExecutables pkgs.haskellPackages.cofree-bot}/bin/cofree-bot run --auth_token $AUTH_TOKEN --homeserver https://matrix.cofree.coffee"
         ];
       };
-    };
-  }
+    }

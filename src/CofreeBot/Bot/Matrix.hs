@@ -10,7 +10,6 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
-import Text.Pretty.Simple
 import Data.IORef
 import System.Directory ( createDirectoryIfMissing )
 import System.IO.Error ( isDoesNotExistError )
@@ -48,7 +47,7 @@ runMatrixBot session cache bot s = do
            events = Map.foldMapWithKey (\rid es -> fmap ((RoomID rid,) . view _reContent) es) roomEvents
 
        liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-       pPrint roomEvents
+       --print roomEvents
        traverse_ (go ref) events
   where
     go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
