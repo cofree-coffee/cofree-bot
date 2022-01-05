@@ -24,6 +24,17 @@ mkRoomAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
 mkRoomAware = second'
 
 --------------------------------------------------------------------------------
+-- User Awareness
+--------------------------------------------------------------------------------
+
+type UserAware :: KBot -> KBot
+type UserAware bot m s i o = bot m s (UserID, i) (UserID, o)
+
+-- | 'mkUserAware' makes a bot "room aware"
+mkUserAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
+mkUserAware = second'
+
+--------------------------------------------------------------------------------
 -- Session
 --------------------------------------------------------------------------------
 
