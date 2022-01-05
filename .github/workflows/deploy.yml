@@ -1,4 +1,4 @@
-name: "Nix Build and Deploy Docker Image"
+name: nix:deploy
 on:
   push:
     branches:

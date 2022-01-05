@@ -1,5 +1,4 @@
 { compiler }:
-
 final: prev: {
   haskell = prev.haskell // {
     packages = prev.haskell.packages // {

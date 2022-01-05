@@ -1,4 +1,4 @@
-name: "Nix Build Docker Image"
+name: nix:build
 on:
   pull_request:
   push:
@@ -11,4 +11,4 @@ jobs:
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - run: nix build .#docker
+    - run: nix build
