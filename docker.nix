@@ -3,6 +3,7 @@
 pkgs.dockerTools.buildLayeredImage {
     name = "ghcr.io/cofree-coffee/cofree-bot";
     created = "now";
+    tag = "latest";
     contents = [ 
       pkgs.bash
       pkgs.cacert

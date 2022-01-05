@@ -1,0 +1,23 @@
+version: "3"
+services:
+  cofree-bot:
+    image: ghcr.io/cofree-coffee/cofree-bot:latest
+    environment:
+      - AUTH_TOKEN=$AUTH_TOKEN
+      - XDG_CACHE_HOME=/cache
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - bot_cache:/cache
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json
+    command: --interval 30
+    deploy:
+      restart_policy:
+        condition: on-failure
+volumes:
+  bot_cache:
