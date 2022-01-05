@@ -1,9 +1,10 @@
-name: "Nix Build Docker Image"
+name: "Nix Build and Deploy Docker Image"
 on:
-  pull_request:
   push:
+    branches:
+      - main
 jobs:
-  tests:
+  docker:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.4.0
@@ -11,4 +12,4 @@ jobs:
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - run: nix build .#docker
+    - run: ./deploy.sh

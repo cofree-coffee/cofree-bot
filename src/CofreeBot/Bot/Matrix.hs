@@ -10,10 +10,10 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
-import Text.Pretty.Simple
 import Data.IORef
-import System.Random ( newStdGen, randoms )
+import System.Directory ( createDirectoryIfMissing )
 import System.IO.Error ( isDoesNotExistError )
+import System.Random ( newStdGen, randoms )
 import Control.Exception ( catch, throwIO )
 
 type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
@@ -28,6 +28,7 @@ readFileMaybe path =
 runMatrixBot :: forall s. ClientSession -> String -> MatrixBot IO s -> s -> IO ()
 runMatrixBot session cache bot s = do
   ref <- newIORef s
+  createDirectoryIfMissing True cache
   since <- readFileMaybe $ cache <> "/since_file"
   void $ runExceptT $ do
     userId <- ExceptT $ getTokenOwner session
@@ -46,7 +47,7 @@ runMatrixBot session cache bot s = do
            events = Map.foldMapWithKey (\rid es -> fmap ((RoomID rid,) . view _reContent) es) roomEvents
 
        liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-       pPrint roomEvents
+       --print roomEvents
        traverse_ (go ref) events
   where
     go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
