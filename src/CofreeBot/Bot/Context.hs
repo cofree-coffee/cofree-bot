@@ -2,15 +2,18 @@
 -- | Context Transformations for bots
 module CofreeBot.Bot.Context where
 
+import Control.Monad (void)
 import CofreeBot.Bot
+import CofreeBot.Utils
 import CofreeBot.Bot.Simple
 import Network.Matrix.Client
 import Data.Map.Strict qualified as Map
-import Data.Attoparsec.Text
+import Data.Attoparsec.Text as A
 import Data.Text qualified as T
 import Data.Bifunctor (bimap)
 import Control.Applicative
 import Data.Profunctor (second')
+import Data.Char
 
 --------------------------------------------------------------------------------
 -- Room Awareness
@@ -22,6 +25,49 @@ type RoomAware bot m s i o = bot m s (RoomID, i) (RoomID, o)
 -- | 'mkRoomAware' makes a bot "room aware"
 mkRoomAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
 mkRoomAware = second'
+
+--------------------------------------------------------------------------------
+-- Debug
+--------------------------------------------------------------------------------
+
+newtype DebugId = DebugId T.Text
+  deriving Eq
+
+data DebugInput i = DebugInput { diDebugId :: DebugId, diInput :: i}
+
+debuggize :: (Monoid o, Monad m) => DebugId -> Bot m s i o -> Bot m s (DebugInput i) o
+debuggize did (Bot bot) = Bot $ \(DebugInput did' i) s ->
+  if did == did'
+    then bot i s
+    else pure $ BotAction mempty s
+
+simplifyDebugBot ::
+  forall m s i o. (Show s, Applicative m) =>
+  Printer o ->
+  Parser i ->
+  Bot m s (DebugInput i) [o] ->
+  TextBot m s
+simplifyDebugBot printer parser (Bot bot) =
+  Bot $ \i s ->
+    case to i of
+      Left _ -> pure $ BotAction [] s
+      Right i' -> fmap (fmap from) $ bot i' s
+  where
+   to :: T.Text -> Either T.Text (DebugInput i)
+   to = fmap (bimap T.pack id) $ parseOnly $ (parseDebugInfo parser)
+
+   from :: [o] -> [T.Text]
+   from = fmap printer
+
+parseDebugInfo :: Parser i -> Parser (DebugInput i)
+parseDebugInfo p = do
+  void "debug"
+  void space
+  n <- fmap (uncurry T.cons) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
+  void ":"
+  void space
+  i <- p
+  pure $ DebugInput (DebugId n) i
 
 --------------------------------------------------------------------------------
 -- Session

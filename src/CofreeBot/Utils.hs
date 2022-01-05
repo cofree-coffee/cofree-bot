@@ -2,6 +2,7 @@ module CofreeBot.Utils where
 
 import Control.Applicative
 import Data.Kind
+import Data.Text qualified as T
 
 (|*|) :: Applicative f => f a -> f b -> f (a, b)
 (|*|) = liftA2 (,)
@@ -35,3 +36,5 @@ type family Transformers ts m
 
 same :: Either x x -> x
 same = either id id
+
+type Printer o = o -> T.Text
