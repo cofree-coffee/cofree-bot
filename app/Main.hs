@@ -9,21 +9,6 @@ import Options.Applicative qualified as Opt
 import OptionsParser
 import System.Environment.XDG.BaseDir ( getUserCacheDir )
 
-{-
-*This is a very scrappy rough draft*
-
-TODO:
-- Handle Full RoomEvents
-- Test suite
-- Administrative interface (via private message?)
-- Command to list all sessions
-- Add fixed point of Bot
-- Bot should auto join DMs
-- Debug Mode Flag where bot gets a special session for all behaviors
-- Implement Multi-Output Bot type
-- Change bot to read auth token from a file and update ops to match
--}
-
 main :: IO ()
 main = do
   --runSimpleBot (simplifyDebugBot (T.intercalate "\n" . printCalcOutput) programP $ debuggize (DebugId "test") $ fmap sequenceA calculatorBot) mempty
