@@ -19,6 +19,7 @@ TODO:
 - [ ] Command to list all sessions
 - [ ] Add fixed point of Bot
 - [ ] Bot should auto join DMs
+- [ ] Debug Mode Flag where bot gets a special session for all behaviors
 -}
 
 main :: IO ()
