@@ -1,6 +1,5 @@
 module OptionsParser where
 
-import CofreeBot
 import Data.Text qualified as T
 import Network.Matrix.Client
 import Options.Applicative qualified as Opt

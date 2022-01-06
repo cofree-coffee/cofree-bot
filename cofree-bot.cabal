@@ -79,7 +79,6 @@ library
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple
     , CofreeBot.Utils
-    , Network.Matrix.Client.Lens
   build-depends:
     , aeson
     , attoparsec
