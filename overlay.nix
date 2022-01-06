@@ -7,10 +7,10 @@ final: prev: {
           (hfinal: hprev: {
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. {};
             matrix-client = hfinal.callCabal2nixWithOptions "matrix-client" (final.fetchFromGitHub {
-              owner = "cofree-coffee";
+              owner = "softwarefactory-project";
               repo = "matrix-client-haskell";
-              rev = "3aad90a0c836dfb1235e05ab6311d340f7a48dcf";
-              sha256 = "sha256-96AQqAHl8PLRdlhL/hoxcGpfXGMZxsB6Pmgzjl1uDt4=";
+              rev = "f8610d8956bd146105292bb75821ca078d01b5ff";
+              sha256 = "sha256-855W12DwGe/OisD7EGvmgStSaMlOc+usORARNtLtpqo=";
             }) "--subpath matrix-client" { };
           });
         }
