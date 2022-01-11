@@ -33,8 +33,11 @@
               hls
             ];
           };
+          packages.docker = import ./docker.nix { inherit pkgs; };
+          checks = {
+            docker = packages.docker;
+          };
           defaultPackage =
             pkgs.haskellPackages.cofree-bot;
-          packages.docker = import ./docker.nix { inherit pkgs overlay; };
-        } // { inherit overlay overlays; });
+        });
 }
