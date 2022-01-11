@@ -10,7 +10,7 @@ import           System.Random
 coinFlipBot :: Bot IO () () Bool
 coinFlipBot = Bot $ \_ s -> do
   gen <- newStdGen
-  let (result, _) = _ gen
+  let (result, _) = random @Bool gen
   pure $ BotAction result s
 
 simplifyCoinFlipBot :: forall s . Bot IO s () Bool -> TextBot IO s

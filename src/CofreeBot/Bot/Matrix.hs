@@ -64,7 +64,7 @@ runMatrixBot session cache bot s = do
     BotAction {..} <- liftIO $ runBot bot input state
     liftIO $ writeIORef ref nextState
     gen <- newStdGen
-    let txnIds = (TxnID . T.pack . show <$> _ gen)
+    let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
     liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
                                  responses
                                  txnIds

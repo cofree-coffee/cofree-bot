@@ -163,7 +163,7 @@ interpretStatement = \case
 interpretProgram
   :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
 interpretProgram =
-  (fmap . fmap . first . fmap) (_)
+  (fmap . fmap . first . fmap) (snd @())
     . coerce
     . fmap fold
     . traverse interpretStatement
