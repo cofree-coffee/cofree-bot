@@ -24,7 +24,7 @@ import System.Process.Typed
 
 main :: IO ()
 main = withProcessWait_ ghciConfig $ \process -> do
-  void $ threadDelay 5e5
+  void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   command <- Opt.execParser parserInfo
   xdgCache <- getUserCacheDir "cofree-bot"
