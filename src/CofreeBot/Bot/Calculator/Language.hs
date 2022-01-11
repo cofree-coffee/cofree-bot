@@ -1,23 +1,27 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
 module CofreeBot.Bot.Calculator.Language where
 
-import CofreeBot.Utils
-import Control.Applicative
-import Data.Attoparsec.Text as A
-import Data.Bifunctor
-import Data.Char (isAlpha, isDigit)
-import Data.Foldable (asum, Foldable (fold))
-import Data.Functor
-import Data.List.NonEmpty qualified as NE
-import Data.Map.Strict qualified as Map
-import Data.Text qualified as T
-import Control.Monad.Error.Class
-import Control.Monad.State.Class
-import Control.Monad.RWS.Class
-import Control.Monad.Writer
-import Control.Monad.State
-import Control.Monad.Except
-import Data.Coerce
+import           CofreeBot.Utils
+import           Control.Applicative
+import           Control.Monad.Error.Class
+import           Control.Monad.Except
+import           Control.Monad.RWS.Class
+import           Control.Monad.State
+import           Control.Monad.State.Class
+import           Control.Monad.Writer
+import           Data.Attoparsec.Text          as A
+import           Data.Bifunctor
+import           Data.Char                      ( isAlpha
+                                                , isDigit
+                                                )
+import           Data.Coerce
+import           Data.Foldable                  ( Foldable(fold)
+                                                , asum
+                                                )
+import           Data.Functor
+import qualified Data.List.NonEmpty            as NE
+import qualified Data.Map.Strict               as Map
+import qualified Data.Text                     as T
 
 --------------------------------------------------------------------------------
 -- Utils
@@ -25,8 +29,14 @@ import Data.Coerce
 
 infixOp :: Parser a -> Parser b -> Parser T.Text -> Parser (a, b)
 infixOp p1 p2 pop =
-  "(" |*| p1 |*| some space |*| pop |*| some space |*| p2 |*| ")" <&>
-    \(_ :& e1 :& _ :& _ :& _ :& e2 :& _) -> (e1, e2)
+  "("
+    |*| p1
+    |*| some space
+    |*| pop
+    |*| some space
+    |*| p2
+    |*| ")"
+    <&> \(_ :& e1 :& _ :& _ :& _ :& e2 :& _) -> (e1, e2)
 
 --------------------------------------------------------------------------------
 -- Parsing types
@@ -56,8 +66,10 @@ instance Show Expr where
   showsPrec p = \case
     Var x -> shows $ T.unpack x
     Val n -> shows n
-    x `Add` y -> showParen (p >= 6) $ (showsPrec 6 x) . (" + " ++) . (showsPrec 6 y)
-    x `Mult` y -> showParen (p >= 7) $ (showsPrec 7 x) . (" * " ++) . (showsPrec 7 y)
+    x `Add` y ->
+      showParen (p >= 6) $ (showsPrec 6 x) . (" + " ++) . (showsPrec 6 y)
+    x `Mult` y ->
+      showParen (p >= 7) $ (showsPrec 7 x) . (" * " ++) . (showsPrec 7 y)
     Neg x -> shows $ "- " <> show x
 
 --------------------------------------------------------------------------------
@@ -65,7 +77,8 @@ instance Show Expr where
 --------------------------------------------------------------------------------
 
 varNameP :: Parser VarName
-varNameP = fmap (uncurry T.cons) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
+varNameP =
+  fmap (uncurry T.cons) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
 
 exprP :: Parser Expr
 exprP = asum
@@ -78,15 +91,20 @@ exprP = asum
 
 statementP :: Parser Statement
 statementP = asum
-  [ varNameP |*| some space |*| ":=" |*| some space |*| exprP <&>
-    \(var :& _ :& _ :& _ :& expr) -> Let var expr
+  [ varNameP
+  |*| some space
+  |*| ":="
+  |*| some space
+  |*| exprP
+  <&> \(var :& _ :& _ :& _ :& expr) -> Let var expr
   , StdOut <$> exprP
   ]
 
 programP :: Parser Program
 programP =
-  statementP |*| ([] <$ endOfInput <|> endOfLine *> statementP `sepBy` endOfLine) <&>
-  uncurry (NE.:|)
+  statementP
+    |*| ([] <$ endOfInput <|> endOfLine *> statementP `sepBy` endOfLine)
+    <&> uncurry (NE.:|)
 
 -- $> import Data.Attoparsec.Text
 
@@ -113,18 +131,14 @@ data CalcError = LookupError T.Text
 
 type CalcState = Map.Map T.Text Int
 
-data CalcResp
-  = Log Expr Int
+data CalcResp = Log Expr Int
 
 --------------------------------------------------------------------------------
 -- Evaluator
 --------------------------------------------------------------------------------
 
-type CalculatorM = Transformers
-  [ WriterT [CalcResp]
-  , ExceptT CalcError
-  , StateT CalcState
-  ] IO
+type CalculatorM
+  = Transformers '[WriterT [CalcResp] , ExceptT CalcError , StateT CalcState] IO
 
 -- | Evaluate an expression in our arithmetic language
 eval :: Expr -> CalculatorM Int
@@ -132,10 +146,10 @@ eval = \case
   Var bndr -> do
     s <- get
     maybe (throwError $ LookupError bndr) pure $ Map.lookup bndr s
-  Val i -> pure i
-  Add x y -> liftA2 (+) (eval x) (eval y)
+  Val i    -> pure i
+  Add  x y -> liftA2 (+) (eval x) (eval y)
   Mult x y -> liftA2 (*) (eval x) (eval y)
-  Neg x -> fmap negate $ eval x
+  Neg x    -> fmap negate $ eval x
 
 -- | Interpret a language statement into response.
 interpretStatement :: Statement -> CalculatorM ()
@@ -147,6 +161,10 @@ interpretStatement = \case
     val <- eval expr
     tell [Log expr val]
 
-interpretProgram :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
+interpretProgram
+  :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
 interpretProgram =
-  (fmap . fmap . first . fmap) (snd @()) . coerce . fmap fold . traverse interpretStatement
+  (fmap . fmap . first . fmap) (_)
+    . coerce
+    . fmap fold
+    . traverse interpretStatement

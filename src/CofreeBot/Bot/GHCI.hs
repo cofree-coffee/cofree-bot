@@ -14,11 +14,11 @@ type GhciBot = Bot IO () T.Text [T.Text]
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle =
-  whileM (hReady handle) (hGetChar handle) 
-    
+  whileM (hReady handle) (hGetChar handle)
+
 ghciBot :: Process Handle Handle () -> GhciBot
 ghciBot p = Bot $ \i s -> do
-  hPutStrLn (getStdin p) $ T.unpack i 
+  hPutStrLn (getStdin p) $ T.unpack i
   hFlush (getStdin p)
   void $ threadDelay 1e5
   o <- hGetOutput (getStdout p)
@@ -28,8 +28,8 @@ ghciConfig :: ProcessConfig Handle Handle ()
 ghciConfig = setStdin createPipe
           $ setStdout createPipe
           $ shell "ghci 2>&1"
-  
+
 ghciInputParser :: Parser T.Text
 ghciInputParser = do
   void $ "$ "
-  T.pack <$> many1 anyChar 
+  T.pack <$> many1 anyChar

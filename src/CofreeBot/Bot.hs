@@ -28,7 +28,7 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
 type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+newtype Bot m s i o = Bot {runBot :: i -> s -> m (BotAction s o)}
 
 instance Monad m => Cat.Category (Bot m s) where
   id = Bot $ \a s -> pure $ BotAction a s
@@ -84,14 +84,16 @@ nudgeLeft = nudge . Left
 nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
-infixr /\
+infixr 9 /\
+
 (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
 (/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
   BotAction {..} <- b1 i s
   BotAction { nextState = nextState', responses = responses' } <- b2 i s'
   pure $ BotAction (responses, responses') (nextState, nextState')
 
-infixr \/
+infixr 9 \/
+
 (\/)
   :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
 (\/) (Bot b1) (Bot b2) = Bot
