@@ -8,30 +8,23 @@ import Network.Matrix.Client
 import Options.Applicative qualified as Opt
 import OptionsParser
 import System.Environment.XDG.BaseDir ( getUserCacheDir )
-{-
-*This is a very scrappy rough draft*
-
-TODO:
-- [ ] Handle Full RoomEvents
-- [ ] Automated Build and Deploy to server
-- [ ] Test suite
-- [ ] Administrative interface (via private message?)
-- [ ] Command to list all sessions
-- [ ] Add fixed point of Bot
-- [ ] Bot should auto join DMs
-- [ ] Debug Mode Flag where bot gets a special session for all behaviors
--}
 
 main :: IO ()
 main = do
   --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
-  --runSimpleBot (simplifyCoinFlipBot $ coinFlipBot) (mempty @())
+  --runSimpleBot (ghciBot) mempty
+
+  --let ghciBot' = simplifySessionBot (T.intercalate "\n") ghciInputParser $ sessionize mempty $ ghciBot
+  --    calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
+  --runSimpleBot (rmap (\(x :& y) -> x <> y ) $ ghciBot' /\ calcBot) (mempty)
+
   command <- Opt.execParser parserInfo
   xdgCache <- getUserCacheDir "cofree-bot"
   let calcBot = liftSimpleBot $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
       helloBot = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
-      bot = rmap (\(x :& y :& z) -> x <> y <> z) $ calcBot /\ helloBot /\ coinFlipBot'
+      ghciBot' = liftSimpleBot $ ghciBot
+      bot = rmap (\(x :& y :& z :& q) -> x <> y <> z <> q) $ calcBot /\ helloBot /\ coinFlipBot' /\ ghciBot'
   case command of
     LoginCmd cred -> do
       session <- login cred

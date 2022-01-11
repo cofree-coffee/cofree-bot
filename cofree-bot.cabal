@@ -75,6 +75,7 @@ library
     , CofreeBot.Bot.Context
     , CofreeBot.Bot.CoinFlip
     , CofreeBot.Bot.GHCI
+    , CofreeBot.Bot.GHCI.Interpreter
     , CofreeBot.Bot.Hello
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple
@@ -88,4 +89,5 @@ library
     , lens
     , mtl
     , pretty-simple
+    , process
     , random
