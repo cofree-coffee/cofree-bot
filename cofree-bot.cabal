@@ -44,10 +44,12 @@ common common-settings
 common common-libraries
   build-depends:
     , base >= 2 && < 5
+    , bytestring
     , matrix-client
     , network-uri
     , profunctors
     , text
+    , typed-process
 
 executable cofree-bot
   import:
@@ -75,7 +77,6 @@ library
     , CofreeBot.Bot.Context
     , CofreeBot.Bot.CoinFlip
     , CofreeBot.Bot.GHCI
-    , CofreeBot.Bot.GHCI.Interpreter
     , CofreeBot.Bot.Hello
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple
@@ -87,6 +88,7 @@ library
     , directory
     , hint
     , lens
+    , monad-loops
     , mtl
     , pretty-simple
     , process

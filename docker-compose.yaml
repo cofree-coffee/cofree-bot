@@ -9,6 +9,8 @@ services:
       restart_policy:
         condition: on-failure
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json
       - bot_cache:/cache
   watchtower:
     image: containrrr/watchtower
