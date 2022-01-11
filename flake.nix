@@ -8,41 +8,70 @@
       url = github:numtide/flake-utils;
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils}:
-    let supportedGHCVersion = "8107";
-        compiler = "ghc${supportedGHCVersion}";
-        overlay = import ./overlay.nix { inherit compiler;};
-        overlays = [ overlay ];
-    in flake-utils.lib.eachDefaultSystem (system:
-        let pkgs = import nixpkgs { inherit system overlays; };
-            supportedGHCVersion = "8107";
-            hls = pkgs.haskell-language-server.override { inherit supportedGhcVersions; };
-        in rec {
-          devShell = pkgs.haskellPackages.shellFor {
-            packages = _: [];
-            buildInputs = with pkgs; [
-              haskellPackages.cabal-install
-              haskellPackages.ghc
-              haskellPackages.brittany
-              zlib
-              hls
-            ];
+  outputs = { self, nixpkgs, flake-utils, pre-commit-hooks }:
+    let
+      compiler = "ghc8107";
+      # default systems compatible with pre-commit-hooks.nix
+      # https://github.com/cachix/pre-commit-hooks.nix/pull/122
+      defaultSystems = [
+        "aarch64-linux"
+        # "aarch64-darwin"
+        "i686-linux"
+        "x86_64-darwin"
+        "x86_64-linux"
+      ];
+    in
+    flake-utils.lib.eachSystem defaultSystems (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+        evalPkgs = import nixpkgs { system = "x86_64-linux"; };
+        hsPkgs = pkgs.haskell.packages.${compiler}.override {
+          overrides = hfinal: hprev: {
+            cofree-bot = evalPkgs.haskell.packages.${compiler}.callCabal2nix "cofree-bot" ./. { };
+            # command to reproduce:
+            # cabal2nix https://github.com/softwarefactory-project/matrix-client-haskell --subpath matrix-client --revision f8610d8956bd146105292bb75821ca078d01b5ff > .nix/deps/matrix-client.nix
+            matrix-client = hfinal.callPackage ./.nix/deps/matrix-client.nix { };
           };
-          packages.docker = import ./docker.nix { inherit pkgs; };
-          checks = {
-            docker = packages.docker;
-            pre-commit-check = pre-commit-hooks.lib.${system}.run {
-              src = ./.;
-              hooks = {
-                nixpkgs-fmt.enable = true;
-                brittany.enable = true;
-                cabal-fmt.enable = true;
-              };
+        };
+      in
+      rec {
+
+        devShell = hsPkgs.shellFor {
+          inherit (self.checks.${system}.pre-commit-check) shellHook;
+          packages = _: [ ];
+          buildInputs = with pkgs; [
+            hsPkgs.cabal-install
+            hsPkgs.ghc
+            hsPkgs.brittany
+            hsPkgs.haskell-language-server
+            cabal2nix
+            zlib
+          ];
+        };
+
+        packages = flake-utils.lib.flattenTree {
+          docker = import ./docker.nix {
+            inherit pkgs;
+            cofree-bot = hsPkgs.cofree-bot;
+          };
+          cofree-bot = hsPkgs.cofree-bot;
+        };
+
+        checks = {
+          pre-commit-check = pre-commit-hooks.lib.${system}.run {
+            src = ./.;
+            hooks = {
+              nixpkgs-fmt.enable = true;
+              brittany.enable = true;
+              cabal-fmt.enable = true;
             };
           };
-          defaultPackage =
-            pkgs.haskellPackages.cofree-bot;
-        });
+        };
+
+        defaultPackage = packages.cofree-bot;
+      });
 }

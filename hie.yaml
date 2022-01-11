@@ -1,2 +1,6 @@
 cradle:
   cabal:
+    - path: "./app"
+      component: "cofree-bot:exe:cofree-bot"
+    - path: "./src"
+      component: "lib:cofree-bot"
