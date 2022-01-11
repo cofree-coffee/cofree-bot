@@ -1,4 +1,4 @@
-{ pkgs }:
+{ pkgs, hsPkgs }:
 
 pkgs.dockerTools.buildLayeredImage {
     name = "ghcr.io/cofree-coffee/cofree-bot";
@@ -11,7 +11,7 @@ pkgs.dockerTools.buildLayeredImage {
     config = {
       Entrypoint = "${pkgs.bash}/bin/bash";
       Cmd = [
-        "-c" "${pkgs.haskell.lib.justStaticExecutables pkgs.haskellPackages.cofree-bot}/bin/cofree-bot run --auth_token $AUTH_TOKEN --homeserver https://matrix.cofree.coffee"
+        "-c" "${pkgs.haskell.lib.justStaticExecutables hsPkgs.cofree-bot}/bin/cofree-bot run --auth_token $AUTH_TOKEN --homeserver https://matrix.cofree.coffee"
       ];
     };
   }

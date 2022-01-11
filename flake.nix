@@ -8,34 +8,39 @@
       url = github:numtide/flake-utils;
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    easy-hls = {
-      url = github:ssbothwell/easy-hls-nix;
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
-  outputs = { self, nixpkgs, easy-hls, flake-utils}:
-    let overlay = import ./overlay.nix { compiler = "ghc8107"; };
+  outputs = { self, nixpkgs, flake-utils}:
+    let supportedGHCVersion = "8107";
+        compiler = "ghc${supportedGHCVersion}";
+        overlay = import ./overlay.nix { inherit compiler;};
         overlays = [ overlay ];
     in flake-utils.lib.eachDefaultSystem (system:
         let pkgs = import nixpkgs { inherit system overlays; };
-            hls = pkgs.callPackage easy-hls {
-              ghcVersions = [ "8.10.7" ];
-            };
+            supportedGHCVersion = "8107";
+            hls = pkgs.haskell-language-server.override { inherit supportedGhcVersions; };
         in rec {
           devShell = pkgs.haskellPackages.shellFor {
             packages = _: [];
-            buildInputs = [
-              pkgs.haskellPackages.cabal-install
-              pkgs.haskellPackages.ghc
-              pkgs.zlib
+            buildInputs = with pkgs; [
+              haskellPackages.cabal-install
+              haskellPackages.ghc
+              haskellPackages.brittany
+              zlib
               hls
             ];
           };
           packages.docker = import ./docker.nix { inherit pkgs; };
           checks = {
             docker = packages.docker;
+            pre-commit-check = pre-commit-hooks.lib.${system}.run {
+              src = ./.;
+              hooks = {
+                nixpkgs-fmt.enable = true;
+                brittany.enable = true;
+                cabal-fmt.enable = true;
+              };
+            };
           };
           defaultPackage =
             pkgs.haskellPackages.cofree-bot;
