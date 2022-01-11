@@ -7,7 +7,6 @@ import           Control.Monad.Error.Class
 import           Control.Monad.Except
 import           Control.Monad.RWS.Class
 import           Control.Monad.State
-import           Control.Monad.State.Class
 import           Control.Monad.Writer
 import           Data.Attoparsec.Text          as A
 import           Data.Bifunctor
@@ -54,7 +53,7 @@ data Expr
 data Statement
   = Let T.Text Expr
   | StdOut Expr
-  deriving Show
+  deriving (Show)
 
 type Program = NE.NonEmpty Statement
 

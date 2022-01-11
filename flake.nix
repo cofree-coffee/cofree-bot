@@ -37,6 +37,7 @@
             matrix-client = hfinal.callPackage ./.nix/deps/matrix-client.nix { };
           };
         };
+        brittany-config = pkgs.writeTextFile "brittany-config" (builtins.readFile ./brittany.yaml);
       in
       rec {
 
@@ -46,6 +47,7 @@
           buildInputs = with pkgs; [
             hsPkgs.cabal-install
             hsPkgs.ghc
+            hsPkgs.ghcid
             hsPkgs.brittany
             hsPkgs.haskell-language-server
             cabal2nix
@@ -66,7 +68,14 @@
             src = ./.;
             hooks = {
               nixpkgs-fmt.enable = true;
-              brittany.enable = true;
+              brittany = {
+                name = "brittany";
+                entry = "${hsPkgs.brittany}/bin/brittany --write-mode=inplace --config-file=${brittany-config}";
+                files = "\\.l?hs$";
+                files = "\\.(c|h)$";
+                language = "system";
+                pass_filenames = false;
+              };
               cabal-fmt.enable = true;
             };
           };
