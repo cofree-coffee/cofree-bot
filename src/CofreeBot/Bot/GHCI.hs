@@ -1,25 +1,34 @@
+{-# LANGUAGE NumDecimals #-}
 module CofreeBot.Bot.GHCI where
 
-
 import CofreeBot.Bot
-import CofreeBot.Bot.GHCI.Interpreter
 import Control.Monad
+import Control.Monad.Loops (whileM)
 import Data.Attoparsec.Text as A
 import Data.Text qualified as T
-import Data.Bifunctor
-import Control.Lens
+import System.Process.Typed
+import System.IO
+import GHC.Conc (threadDelay)
 
-ghciBot :: Bot IO () T.Text [T.Text]
-ghciBot = Bot $ \i s -> do
-  case parseOnly ghciInputParser i of
-    Left _ -> pure $ BotAction [] s
-    Right input -> do
-      result <- fmap (bimap T.pack (fmap T.pack)) <$> runGhci input
-      let result' = result & fmap (\case
-           (i', Nothing) -> "```\n> " <> i' <> "\n````"
-           (i', Just o) -> "```\n> " <> i' <> "\n" <> o <> "\n```")
-      pure $ BotAction result' s
+type GhciBot = Bot IO () T.Text [T.Text]
 
+hGetOutput :: Handle -> IO String
+hGetOutput handle =
+  whileM (hReady handle) (hGetChar handle) 
+    
+ghciBot :: Process Handle Handle () -> GhciBot
+ghciBot p = Bot $ \i s -> do
+  hPutStrLn (getStdin p) $ T.unpack i 
+  hFlush (getStdin p)
+  void $ threadDelay 1e5
+  o <- hGetOutput (getStdout p)
+  pure $ BotAction (pure $ T.pack o) s
+
+ghciConfig :: ProcessConfig Handle Handle ()
+ghciConfig = setStdin createPipe
+          $ setStdout createPipe
+          $ shell "ghci 2>&1"
+  
 ghciInputParser :: Parser T.Text
 ghciInputParser = do
   void $ "$ "
