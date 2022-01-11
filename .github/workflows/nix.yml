@@ -6,14 +6,20 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2.4.0
-    - uses: cachix/install-nix-action@v15
+    - name: Checkout 🛎️
+      uses: actions/checkout@v2.4.0
+
+    - name: Install Nix ❄
+      uses: cachix/install-nix-action@v15
       with:
         extra_nix_config: |
           access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-    - uses: cachix/cachix-action@v10
+
+    - name: Link Cachix 🔌
+      uses: cachix/cachix-action@v10
       with:
         name: cofree-coffee
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
-    - run: cachix use cofree-coffee
-    - run: nix build
+    
+    - name: Deploy 🚀
+      run: nix build
