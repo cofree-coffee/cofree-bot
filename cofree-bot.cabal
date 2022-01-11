@@ -1,15 +1,15 @@
-cabal-version:      3.0
-name:               cofree-bot
-version:            0.1.0.0
-synopsis:           A chat bot for cofree.coffee
-bug-reports:        http://www.github.com/ssbothwell/cofree-bot
-license:            MIT
-author:             Solomon and Asad
-maintainer:         ssbothwell@gmail.com
-category:           matrix, bot
+cabal-version: 3.0
+name:          cofree-bot
+version:       0.1.0.0
+synopsis:      A chat bot for cofree.coffee
+bug-reports:   http://www.github.com/ssbothwell/cofree-bot
+license:       MIT
+author:        Solomon and Asad
+maintainer:    ssbothwell@gmail.com
+category:      matrix, bot
 
 common common-settings
-  default-language:    Haskell2010
+  default-language:   Haskell2010
   default-extensions:
     DataKinds
     DeriveFunctor
@@ -18,8 +18,8 @@ common common-settings
     FlexibleContexts
     FlexibleInstances
     GeneralizedNewtypeDeriving
-    InstanceSigs
     ImportQualifiedPost
+    InstanceSigs
     LambdaCase
     NamedFieldPuns
     OverloadedStrings
@@ -33,12 +33,8 @@ common common-settings
     TypeOperators
 
   ghc-options:
-    -Wall
-    -Wcpp-undef
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wpartial-fields
+    -Wall -Wcpp-undef -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wpartial-fields
     -Werror=missing-home-modules
 
 common common-libraries
@@ -55,20 +51,22 @@ executable cofree-bot
   import:
     , common-libraries
     , common-settings
-  main-is: Main.hs
+
+  main-is:        Main.hs
   hs-source-dirs: app
   build-depends:
-      cofree-bot
+    , cofree-bot
     , optparse-applicative
     , xdg-basedir
-  other-modules:
-    OptionsParser
+
+  other-modules:  OptionsParser
 
 library
   import:
     , common-libraries
     , common-settings
-  hs-source-dirs: src
+
+  hs-source-dirs:  src
   exposed-modules:
       CofreeBot
     , CofreeBot.Bot
@@ -81,6 +79,7 @@ library
     , CofreeBot.Bot.Matrix
     , CofreeBot.Bot.Simple
     , CofreeBot.Utils
+
   build-depends:
     , aeson
     , attoparsec

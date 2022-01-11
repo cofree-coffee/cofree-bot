@@ -72,7 +72,6 @@
                 name = "brittany";
                 entry = "${hsPkgs.brittany}/bin/brittany --write-mode=inplace --config-file=${brittany-config}";
                 files = "\\.l?hs$";
-                files = "\\.(c|h)$";
                 language = "system";
                 pass_filenames = false;
               };
