@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module Main where
 
 import CofreeBot
@@ -9,6 +11,16 @@ import Options.Applicative qualified as Opt
 import OptionsParser
 import System.Environment.XDG.BaseDir ( getUserCacheDir )
 import System.Process.Typed
+
+class CombineBots a b where
+  combineBots :: a /\ b -> a
+
+instance {-# OVERLAPPING #-} Monoid a => CombineBots a a where
+  combineBots (a :& b) = a <> b
+
+instance (Monoid a, CombineBots a b) => CombineBots a (a /\ b) where
+  combineBots (a :& c) = a <> combineBots c
+
 
 main :: IO ()
 main = withProcessWait_ ghciConfig $ \process -> do
@@ -25,7 +37,7 @@ main = withProcessWait_ ghciConfig $ \process -> do
       helloBot = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot' = liftSimpleBot $ ghciBot process
-      bot = rmap (\(x :& y :& z :& q) -> x <> y <> z <> q) $ calcBot /\ helloBot /\ coinFlipBot' /\ ghciBot'
+      bot = rmap combineBots $ calcBot /\ helloBot /\ coinFlipBot' /\ ghciBot'
   case command of
     LoginCmd cred -> do
       session <- login cred
