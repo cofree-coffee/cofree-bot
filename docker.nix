@@ -6,6 +6,7 @@ pkgs.dockerTools.buildLayeredImage {
     tag = "latest";
     contents = [ 
       pkgs.bash
+      pkgs.docker
       pkgs.cacert
     ];
     config = {
