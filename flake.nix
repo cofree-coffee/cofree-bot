@@ -34,6 +34,9 @@
         # need to do the evalPkgs trick so that IFD works with `nix flake check`
         # https://github.com/NixOS/nix/issues/4265
         evalPkgs = import nixpkgs { system = "x86_64-linux"; };
+
+        # Our haskell packages override, needs to use evalPkgs because
+        # cabal2nix uses IFD
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. { };
@@ -43,7 +46,17 @@
             matrix-client = hfinal.callPackage ./.nix/deps/matrix-client.nix { };
           };
         };
-        brittany-config = pkgs.writeTextFile "brittany-config" (builtins.readFile ./brittany.yaml);
+
+        brittany-config = pkgs.writeTextFile {
+          name = "brittany-config";
+          text = builtins.readFile ./brittany.yaml;
+        };
+
+        scripts = import ./.nix/scripts.nix {
+          inherit brittany-config;
+          s = pkgs.writeShellScriptBin;
+          brittany = pkgs.haskellPackages.brittany;
+        };
       in
       rec {
 
@@ -59,7 +72,8 @@
             ghcid
             cabal2nix
             zlib
-          ];
+          ] ++ (builtins.attrValues scripts);
+          # ];
         };
 
         packages = flake-utils.lib.flattenTree {
@@ -75,13 +89,13 @@
             src = ./.;
             hooks = {
               nixpkgs-fmt.enable = true;
-              # brittany = {
-              #   name = "brittany";
-              #   entry = "${hsPkgs.brittany}/bin/brittany --write-mode=inplace --config-file=${brittany-config}";
-              #   files = "\\.l?hs$";
-              #   language = "system";
-              #   pass_filenames = false;
-              # };
+              brittany = {
+                name = "brittany";
+                entry = "${hsPkgs.brittany}/bin/brittany --write-mode=inplace --config-file=${brittany-config}";
+                files = "\\.l?hs$";
+                language = "system";
+                pass_filenames = false;
+              };
               cabal-fmt.enable = true;
             };
           };
