@@ -33,5 +33,10 @@ type family Transformers ts m
   Transformers '[] m = m
   Transformers (t ': ts) m = t (Transformers ts m)
 
-same :: Either x x -> x
-same = either id id
+indistinct :: Either x x -> x
+indistinct = either id id
+
+distinguish :: (a -> Bool) -> a -> Either a a
+distinguish f x
+  | f x = Right x
+  | otherwise = Left x

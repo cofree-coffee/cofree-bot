@@ -10,6 +10,7 @@ import System.Process.Typed
 import System.IO
 import GHC.Conc (threadDelay)
 import Data.Profunctor
+import CofreeBot.Utils
 
 type GhciBot = Bot IO () T.Text [T.Text]
 
@@ -26,7 +27,7 @@ ghciBot' p = mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParse
   pure $ BotAction (pure $ T.pack o) s
 
 ghciBot :: Process Handle Handle () -> GhciBot
-ghciBot p = dimap (\i -> if i == "ghci: :q" then Left i else Right i) (either id id) $ pureStatelessBot (const $ ["I'm Sorry Dave"]) \/ ghciBot' p
+ghciBot p = dimap (distinguish (/= "ghci: :q")) indistinct $ pureStatelessBot (const $ ["I'm Sorry Dave"]) \/ ghciBot' p
 
 ghciConfig :: ProcessConfig Handle Handle ()
 ghciConfig = setStdin createPipe

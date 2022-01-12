@@ -20,7 +20,7 @@ parseErrorBot = pureStatelessBot $ \ParseError {..} ->
 
 simplifyCalculatorBot :: Applicative m => Bot m s Program (Either CalcError [CalcResp]) -> Bot m s T.Text [T.Text]
 simplifyCalculatorBot bot
-  = dimap parseProgram same
+  = dimap parseProgram indistinct
   $ rmap (:[]) parseErrorBot \/ rmap printCalcOutput bot
 
 printCalcOutput :: Either CalcError [CalcResp] -> [T.Text]
