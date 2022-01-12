@@ -1,7 +1,7 @@
 module CofreeBot.Utils where
 
-import Control.Applicative
-import Data.Kind
+import           Control.Applicative
+import           Data.Kind
 
 (|*|) :: Applicative f => f a -> f b -> f (a, b)
 (|*|) = liftA2 (,)
@@ -37,6 +37,5 @@ indistinct :: Either x x -> x
 indistinct = either id id
 
 distinguish :: (a -> Bool) -> a -> Either a a
-distinguish f x
-  | f x = Right x
-  | otherwise = Left x
+distinguish f x | f x       = Right x
+                | otherwise = Left x
