@@ -15,8 +15,8 @@ type GhciBot = Bot IO () T.Text [T.Text]
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle =
-  whileM (hReady handle) (hGetChar handle) 
-    
+  whileM (hReady handle) (hGetChar handle)
+
 ghciBot' :: Process Handle Handle () -> GhciBot
 ghciBot' p = mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser) $ Bot $ \i s -> do
   hPutStrLn (getStdin p) $ T.unpack i
@@ -31,10 +31,10 @@ ghciBot p = dimap (\i -> if i == "ghci: :q" then Left i else Right i) (either id
 ghciConfig :: ProcessConfig Handle Handle ()
 ghciConfig = setStdin createPipe
           $ setStdout createPipe
-          $ shell "docker run -i haskell 2>&1"
-  
+          $ shell "docker run -i --rm haskell 2>&1"
+
 ghciInputParser :: Parser T.Text
 ghciInputParser = do
   void $ "ghci: "
-  T.pack <$> many1 anyChar 
- 
+  T.pack <$> many1 anyChar
+
