@@ -10,13 +10,14 @@ import System.Process.Typed
 import System.IO
 import GHC.Conc (threadDelay)
 import Data.Profunctor
+import CofreeBot.Utils
 
 type GhciBot = Bot IO () T.Text [T.Text]
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle =
-  whileM (hReady handle) (hGetChar handle) 
-    
+  whileM (hReady handle) (hGetChar handle)
+
 ghciBot' :: Process Handle Handle () -> GhciBot
 ghciBot' p = mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser) $ Bot $ \i s -> do
   hPutStrLn (getStdin p) $ T.unpack i
@@ -26,15 +27,15 @@ ghciBot' p = mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParse
   pure $ BotAction (pure $ T.pack o) s
 
 ghciBot :: Process Handle Handle () -> GhciBot
-ghciBot p = dimap (\i -> if i == "ghci: :q" then Left i else Right i) (either id id) $ pureStatelessBot (const $ ["I'm Sorry Dave"]) \/ ghciBot' p
+ghciBot p = dimap (distinguish (/= "ghci: :q")) indistinct $ pureStatelessBot (const $ ["I'm Sorry Dave"]) \/ ghciBot' p
 
 ghciConfig :: ProcessConfig Handle Handle ()
 ghciConfig = setStdin createPipe
           $ setStdout createPipe
-          $ shell "docker run -i haskell 2>&1"
-  
+          $ shell "docker run -i --rm haskell 2>&1"
+
 ghciInputParser :: Parser T.Text
 ghciInputParser = do
   void $ "ghci: "
-  T.pack <$> many1 anyChar 
- 
+  T.pack <$> many1 anyChar
+
