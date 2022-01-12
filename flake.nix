@@ -43,7 +43,7 @@
 
             # command to reproduce:
             # cabal2nix https://github.com/softwarefactory-project/matrix-client-haskell --subpath matrix-client --revision f8610d8956bd146105292bb75821ca078d01b5ff > .nix/deps/matrix-client.nix
-            matrix-client = hfinal.callPackage ./.nix/deps/matrix-client.nix { };
+            matrix-client = hfinal.callPackage ./nix/deps/matrix-client.nix { };
           };
         };
 
@@ -52,7 +52,7 @@
           text = builtins.readFile ./brittany.yaml;
         };
 
-        scripts = import ./.nix/scripts.nix {
+        scripts = import ./nix/scripts.nix {
           inherit brittany-config;
           s = pkgs.writeShellScriptBin;
           brittany = pkgs.haskellPackages.brittany;
@@ -77,7 +77,7 @@
         };
 
         packages = flake-utils.lib.flattenTree {
-          docker = import ./.nix/docker.nix {
+          docker = import ./nix/docker.nix {
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
