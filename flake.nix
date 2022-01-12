@@ -77,7 +77,7 @@
         };
 
         packages = flake-utils.lib.flattenTree {
-          docker = import ./docker.nix {
+          docker = import ./.nix/docker.nix {
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
