@@ -2,3 +2,4 @@
 /flake.lock
 /.envrc
 /dist-newstyle/
+.pre-commit-config.yaml
