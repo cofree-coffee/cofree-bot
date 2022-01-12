@@ -1,0 +1,22 @@
+conf_forward:
+  options_ghc:
+  - -XDataKinds
+  - -XDeriveFunctor
+  - -XDeriveGeneric
+  - -XDerivingVia
+  - -XFlexibleContexts
+  - -XFlexibleInstances
+  - -XGeneralizedNewtypeDeriving
+  - -XInstanceSigs
+  - -XImportQualifiedPost
+  - -XLambdaCase
+  - -XNamedFieldPuns
+  - -XOverloadedStrings
+  - -XPatternSynonyms
+  - -XRecordWildCards
+  - -XScopedTypeVariables
+  - -XStandaloneKindSignatures
+  - -XTupleSections
+  - -XTypeApplications
+  - -XTypeFamilies
+  - -XTypeOperators
