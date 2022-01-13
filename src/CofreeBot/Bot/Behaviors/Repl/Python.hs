@@ -11,4 +11,4 @@ pythonBot :: Process Handle Handle () -> ReplBot
 pythonBot = replBot "python: "
 
 pythonConfig :: ProcessConfig Handle Handle ()
-pythonConfig = replConfig "nix-shell -p python3 --run python"
+pythonConfig = replConfig "nix-shell -p python3 --run 'python -iq' 2>&1"
