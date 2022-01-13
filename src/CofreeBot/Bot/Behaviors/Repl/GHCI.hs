@@ -1,4 +1,3 @@
-{-# LANGUAGE NumDecimals #-}
 module CofreeBot.Bot.Behaviors.Repl.GHCI
   ( ghciBot
   , ghciConfig
