@@ -1,9 +1,7 @@
 -- | The Simplest Bot
-module CofreeBot.Bot.Hello where
+module CofreeBot.Bot.Behaviors.Hello where
 
 import           CofreeBot.Bot
-import           CofreeBot.Bot.Matrix
-import           CofreeBot.Bot.Simple
 import qualified Data.Text                     as T
 
 helloSimpleBot :: Applicative m => TextBot m s

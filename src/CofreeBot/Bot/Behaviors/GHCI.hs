@@ -1,5 +1,9 @@
 {-# LANGUAGE NumDecimals #-}
-module CofreeBot.Bot.GHCI where
+module CofreeBot.Bot.Behaviors.GHCI
+  ( ghciBot
+  , ghciConfig
+  , hGetOutput
+  ) where
 
 import           CofreeBot.Bot
 import           CofreeBot.Utils

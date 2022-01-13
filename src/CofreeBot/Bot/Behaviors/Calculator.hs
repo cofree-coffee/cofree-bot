@@ -1,7 +1,7 @@
-module CofreeBot.Bot.Calculator where
+module CofreeBot.Bot.Behaviors.Calculator where
 
 import           CofreeBot.Bot
-import           CofreeBot.Bot.Calculator.Language
+import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           CofreeBot.Utils
 import           Data.Functor
 import           Data.Profunctor

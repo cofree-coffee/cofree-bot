@@ -3,7 +3,6 @@
 module CofreeBot.Bot.Context where
 
 import           CofreeBot.Bot
-import           CofreeBot.Bot.Simple
 import           Control.Applicative
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )

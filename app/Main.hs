@@ -2,7 +2,7 @@
 module Main where
 
 import           CofreeBot
-import           CofreeBot.Bot.Calculator.Language
+import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           Control.Monad
 import           Data.Profunctor
 import qualified Data.Text                     as T

@@ -70,14 +70,13 @@ library
   exposed-modules:
     CofreeBot
     CofreeBot.Bot
-    CofreeBot.Bot.Calculator
-    CofreeBot.Bot.Calculator.Language
-    CofreeBot.Bot.CoinFlip
+    CofreeBot.Bot.Behaviors
+    CofreeBot.Bot.Behaviors.Calculator
+    CofreeBot.Bot.Behaviors.Calculator.Language
+    CofreeBot.Bot.Behaviors.CoinFlip
+    CofreeBot.Bot.Behaviors.GHCI
+    CofreeBot.Bot.Behaviors.Hello
     CofreeBot.Bot.Context
-    CofreeBot.Bot.GHCI
-    CofreeBot.Bot.Hello
-    CofreeBot.Bot.Matrix
-    CofreeBot.Bot.Simple
     CofreeBot.Utils
 
   build-depends:
