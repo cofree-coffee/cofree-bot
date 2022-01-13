@@ -1,7 +1,6 @@
-module CofreeBot.Bot.CoinFlip where
+module CofreeBot.Bot.Behaviors.CoinFlip where
 
 import           CofreeBot.Bot
-import           CofreeBot.Bot.Simple
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )
 import qualified Data.Text                     as T
