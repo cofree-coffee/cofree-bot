@@ -13,17 +13,20 @@ import           OptionsParser
 import           System.Environment.XDG.BaseDir ( getUserCacheDir )
 import           System.Process.Typed
 
---main :: IO ()
---main = withProcessWait_ ghciConfig $ \process -> do
---  runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
---  runSimpleBot (ghciBot process) mempty
-
---  let ghciBot' = ghciBot process
---      calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
---  runSimpleBot (rmap (\(x :& y) -> x <> y ) $ ghciBot' /\ calcBot) (mempty)
-
 main :: IO ()
-main = withProcessWait_ ghciConfig $ \process -> do
+main = cliMain
+
+cliMain :: IO ()
+cliMain = withProcessWait_ pythonConfig $ \process -> do
+  --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
+  runTextBot (pythonBot process) mempty
+
+  --let ghciBot' = ghciBot process
+  --    calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
+  --runSimpleBot (rmap (\(x :& y) -> x <> y ) $ ghciBot' /\ calcBot) (mempty)
+
+matrixMain :: IO ()
+matrixMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   command  <- Opt.execParser parserInfo

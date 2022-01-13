@@ -74,8 +74,11 @@ library
     CofreeBot.Bot.Behaviors.Calculator
     CofreeBot.Bot.Behaviors.Calculator.Language
     CofreeBot.Bot.Behaviors.CoinFlip
-    CofreeBot.Bot.Behaviors.GHCI
     CofreeBot.Bot.Behaviors.Hello
+    CofreeBot.Bot.Behaviors.Repl
+    CofreeBot.Bot.Behaviors.Repl.GHCI
+    CofreeBot.Bot.Behaviors.Repl.Python
+    CofreeBot.Bot.Behaviors.Repl.Util
     CofreeBot.Bot.Context
     CofreeBot.Utils
 

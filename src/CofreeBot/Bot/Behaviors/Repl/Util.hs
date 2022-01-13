@@ -1,29 +1,23 @@
 {-# LANGUAGE NumDecimals #-}
-module CofreeBot.Bot.Behaviors.GHCI
-  ( ghciBot
-  , ghciConfig
-  , hGetOutput
-  ) where
+module CofreeBot.Bot.Behaviors.Repl.Util where
 
 import           CofreeBot.Bot
-import           CofreeBot.Utils
 import           Control.Monad
 import           Control.Monad.Loops            ( whileM )
 import           Data.Attoparsec.Text          as A
-import           Data.Profunctor
 import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
 
-type GhciBot = Bot IO () T.Text [T.Text]
+type ReplBot = Bot IO () T.Text [T.Text]
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle = whileM (hReady handle) (hGetChar handle)
 
-ghciBot' :: Process Handle Handle () -> GhciBot
-ghciBot' p =
-  mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser)
+replBot :: T.Text -> Process Handle Handle () -> ReplBot
+replBot prompt p =
+  mapMaybeBot (either (const Nothing) Just . parseOnly (replInputParser prompt))
     $ Bot
     $ \i s -> do
         hPutStrLn (getStdin p) $ T.unpack i
@@ -32,18 +26,11 @@ ghciBot' p =
         o <- hGetOutput (getStdout p)
         pure $ BotAction (pure $ T.pack o) s
 
-ghciBot :: Process Handle Handle () -> GhciBot
-ghciBot p =
-  dimap (distinguish (/= "ghci: :q")) indistinct
-    $  pureStatelessBot (const $ ["I'm Sorry Dave"])
-    \/ ghciBot' p
+replConfig :: String -> ProcessConfig Handle Handle ()
+replConfig = setStdin createPipe . setStdout createPipe . shell 
 
-ghciConfig :: ProcessConfig Handle Handle ()
-ghciConfig = setStdin createPipe $ setStdout createPipe $ shell
-  "docker run -i --rm haskell 2>&1"
-
-ghciInputParser :: Parser T.Text
-ghciInputParser = do
-  void $ "ghci: "
+replInputParser :: T.Text -> Parser T.Text
+replInputParser prompt = do
+  void $ string prompt
   T.pack <$> many1 anyChar
 
