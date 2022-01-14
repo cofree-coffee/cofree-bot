@@ -24,6 +24,8 @@ let
       python = mkImage pkgs.python3 [ "python" "-iq" ];
       node = mkImage pkgs.nodejs [ "node" "-i" ];
       ghci = mkImage pkgs.ghc [ "ghci" ];
+      mitScheme = mkImage pkgs.mitscheme [ "mit-scheme" ];
+      sbcl = mkImage pkgs.sbcl [ "sbcl" ];
     };
 in
 pkgs.runCommand "repls" { } (mkPath images) 
