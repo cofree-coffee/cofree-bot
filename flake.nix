@@ -39,7 +39,9 @@
         # cabal2nix uses IFD
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
-            cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. { };
+            cofree-bot = hfinal.callCabal2nix "cofree-bot"
+              (pkgs.lib.sourceFilesBySuffices ./. [ ".hs" ".cabal" ".project" ])
+              { };
 
             # command to reproduce:
             # cabal2nix https://github.com/softwarefactory-project/matrix-client-haskell --subpath matrix-client --revision f8610d8956bd146105292bb75821ca078d01b5ff > .nix/deps/matrix-client.nix
@@ -77,14 +79,26 @@
         };
 
         packages = flake-utils.lib.flattenTree {
-          docker = import ./nix/docker.nix {
+          bot-image = import ./nix/docker.nix {
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
+
           repls = import ./nix/repl-containers.nix {
             inherit pkgs;
           };
+
           cofree-bot = hsPkgs.cofree-bot;
+
+          deploy-bot =
+            pkgs.writeScript "deploy-bot"
+              ''
+                #!${pkgs.bash}/bin/bash
+                set -euxo pipefail
+
+                image=$(${pkgs.docker}/bin/docker load -i ${packages.bot-image} | sed -n 's#^Loaded image: \([a-zA-Z0-9\.\/\-\:]*\)#\1#p')
+                ${pkgs.docker}/bin/docker push $image
+              '';
         };
 
         checks = {
