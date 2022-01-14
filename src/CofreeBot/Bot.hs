@@ -3,9 +3,6 @@ module CofreeBot.Bot where
 import           CofreeBot.Utils
 import qualified Control.Arrow                 as Arrow
 import qualified Control.Category              as Cat
-import           Control.Exception              ( catch
-                                                , throwIO
-                                                )
 import           Control.Lens            hiding ( from
                                                 , to
                                                 )
@@ -17,12 +14,10 @@ import           Data.Kind
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor
 import qualified Data.Text                     as T
-import qualified Data.Text.IO                  as T
 import           Network.Matrix.Client
 import           Network.Matrix.Client.Lens
 import           System.Directory               ( createDirectoryIfMissing )
 import           System.IO
-import           System.IO.Error                ( isDoesNotExistError )
 import           System.Random
 
 data BotAction s o = BotAction
@@ -122,15 +117,12 @@ mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) =
   Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
+
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
 
 type MatrixBot m s = Bot m s (RoomID, RoomEvent) [MatrixAction]
-
-readFileMaybe :: String -> IO (Maybe T.Text)
-readFileMaybe path = (fmap Just $ T.readFile path)
-  `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
 
 data MatrixMessage = MatrixMessage { mmRid :: RoomID, mmEvent :: Event }
 data MatrixReply = MatrixReply { mrRid :: RoomID, mrOriginal :: RoomEvent, mrMessage :: MessageText }
