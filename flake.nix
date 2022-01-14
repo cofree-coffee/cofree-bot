@@ -81,6 +81,9 @@
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
+          repls = import ./nix/repl-containers.nix {
+            inherit pkgs;
+          };
           cofree-bot = hsPkgs.cofree-bot;
         };
 

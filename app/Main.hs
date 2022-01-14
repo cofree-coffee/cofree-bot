@@ -17,8 +17,8 @@ main :: IO ()
 main = cliMain
 
 cliMain :: IO ()
-cliMain = withProcessWait_ pythonConfig $ \pythonProcess -> withProcessWait_ nodeConfig $ \process -> do
-  runTextBot (rmap (\(x :& y) -> x <> y ) $ nodeBot process /\ pythonBot pythonProcess) mempty 
+cliMain = withProcesses replConfigs  $ \Repls{..} -> do
+  runTextBot (rmap (\(x :& y :& z) -> x <> y <> z) $ nodeBot node /\ pythonBot python /\ ghciBot ghci) mempty 
   --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
   --let ghciBot' = ghciBot process
   --    calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
