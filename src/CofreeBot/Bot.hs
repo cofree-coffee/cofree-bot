@@ -126,11 +126,22 @@ mapMaybeBot f (Bot bot) =
 -- Matrix Bot
 --------------------------------------------------------------------------------
 
-type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
+type MatrixBot m s = Bot m s (RoomID, RoomEvent) [MatrixAction]
 
 readFileMaybe :: String -> IO (Maybe T.Text)
 readFileMaybe path = (fmap Just $ T.readFile path)
   `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
+
+data MatrixMessage = MatrixMessage { mmRid :: RoomID, mmEvent :: Event }
+data MatrixReply = MatrixReply { mrRid :: RoomID, mrOriginal :: RoomEvent, mrMessage :: MessageText }
+data MatrixAction = SendMessage MatrixMessage | SendReply MatrixReply
+
+runMatrixAction :: ClientSession -> TxnID -> MatrixAction -> MatrixIO EventID
+runMatrixAction session txnId = \case
+  SendMessage (MatrixMessage {..}) -> sendMessage session mmRid mmEvent txnId
+  SendReply (MatrixReply {..}) -> let
+    event = mkReply mrRid mrOriginal mrMessage
+    in sendMessage session mrRid event txnId
 
 runMatrixBot
   :: forall s . ClientSession -> String -> MatrixBot IO s -> s -> IO ()
@@ -154,9 +165,9 @@ runMatrixBot session cache bot s = do
           roomEvents :: Map.Map T.Text [RoomEvent]
           roomEvents = roomsMap <&> view (_jrsTimeline . _tsEvents . _Just)
 
-          events :: [(RoomID, Event)]
+          events :: [(RoomID, RoomEvent)]
           events = Map.foldMapWithKey
-            (\rid es -> fmap ((RoomID rid, ) . view _reContent) es)
+            (\rid es -> fmap ((RoomID rid, ) . id) es)
             roomEvents
 
       liftIO $ print syncResult
@@ -167,32 +178,25 @@ runMatrixBot session cache bot s = do
   acceptInvites :: [T.Text] -> IO ()
   acceptInvites invites = traverse_ (joinRoom session) invites
   
-  go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
+  go :: MonadIO m => IORef s -> (RoomID, RoomEvent) -> m ()
   go ref input = do
+    gen            <- newStdGen
     state          <- liftIO $ readIORef ref
     BotAction {..} <- liftIO $ runBot bot input state
     liftIO $ writeIORef ref nextState
-    gen <- newStdGen
     let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
-                                 responses
-                                 txnIds
+    liftIO $ sequence_ $ zipWith (runMatrixAction session) txnIds responses 
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (to i) s
+  $ \(rid, i) s -> fmap (fmap  (fmap (SendMessage . mkMsg rid))) $ bot (viewBody i) s
  where
-  viewBody :: Event -> T.Text
-  viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+  viewBody :: RoomEvent -> T.Text
+  viewBody = (view (_reContent . _EventRoomMessage . _RoomMessageText . _mtBody))
 
-  to :: Event -> T.Text
-  to = viewBody
-
-  mkMsg :: T.Text -> Event
-  mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
-                                                               TextType
-                                                               Nothing
-                                                               Nothing
+  mkMsg :: RoomID -> T.Text -> MatrixMessage
+  mkMsg rid' msg =
+    MatrixMessage rid' $ EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
 
 --------------------------------------------------------------------------------
 -- Text Bot
