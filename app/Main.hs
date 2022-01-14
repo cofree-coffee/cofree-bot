@@ -18,7 +18,8 @@ main = cliMain
 
 cliMain :: IO ()
 cliMain = withProcesses replConfigs  $ \Repls{..} -> do
-  runTextBot (rmap (\(x :& y :& z :& q) -> x <> y <> z <> q) $ nodeBot node /\ pythonBot python /\ ghciBot ghci /\ mitSchemeBot mitScheme) mempty 
+  runTextBot (rmap (\(x :& y :& z :& q :& p) -> x <> y <> z <> q <> p) $
+              nodeBot node /\ pythonBot python /\ ghciBot ghci /\ mitSchemeBot mitScheme /\ sbclBot sbcl) mempty 
   --runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
   --let ghciBot' = ghciBot process
   --    calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot

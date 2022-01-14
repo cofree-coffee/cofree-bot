@@ -43,6 +43,7 @@ data Repls a = Repls
   , ghci :: a
   , node :: a
   , mitScheme :: a
+  , sbcl :: a
   } deriving (Functor, Foldable, Traversable)
 
 withProcesses :: Repls (ProcessConfig i o e) -> (Repls (Process i o e) -> IO r) -> IO r

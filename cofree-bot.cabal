@@ -80,6 +80,7 @@ library
     CofreeBot.Bot.Behaviors.Repl.MitScheme
     CofreeBot.Bot.Behaviors.Repl.Node
     CofreeBot.Bot.Behaviors.Repl.Python
+    CofreeBot.Bot.Behaviors.Repl.SBCL
     CofreeBot.Bot.Behaviors.Repl.Util
     CofreeBot.Bot.Context
     CofreeBot.Utils
