@@ -78,7 +78,7 @@
           # ];
         };
 
-        packages = flake-utils.lib.flattenTree {
+        packages = flake-utils.lib.flattenTree rec {
           bot-image = import ./nix/docker.nix {
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
@@ -96,10 +96,27 @@
                 #!${pkgs.bash}/bin/bash
                 set -euxo pipefail
 
-                image=$(${pkgs.docker}/bin/docker load -i ${packages.bot-image} | sed -n 's#^Loaded image: \([a-zA-Z0-9\.\/\-\:]*\)#\1#p')
+                image=$(${pkgs.docker}/bin/docker load -i ${bot-image} | sed -n 's#^Loaded image: \([a-zA-Z0-9\.\/\-\:]*\)#\1#p')
                 ${pkgs.docker}/bin/docker push $image
+
+                for x in ${repls}/*; do
+                  image=$(${pkgs.docker}/bin/docker load -i $x | sed -n 's#^Loaded image: \([a-zA-Z0-9\.\/\-\:]*\)#\1#p')
+                  ${pkgs.docker}/bin/docker push $image
+                done
+              '';
+
+          deploy-repls =
+            pkgs.writeScript "deploy-bot"
+              ''
+                #!${pkgs.bash}/bin/bash
+                set -euxo pipefail
+                for x in ${repls}/*; do
+                  ${pkgs.docker}/bin/docker load -i $x
+                done
               '';
         };
+
+
 
         checks = {
           pre-commit-check = pre-commit-hooks.lib.${system}.run {
