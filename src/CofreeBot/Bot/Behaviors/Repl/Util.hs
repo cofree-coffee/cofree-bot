@@ -42,6 +42,7 @@ data Repls a = Repls
   { python :: a
   , ghci :: a
   , node :: a
+  , mitScheme :: a
   } deriving (Functor, Foldable, Traversable)
 
 withProcesses :: Repls (ProcessConfig i o e) -> (Repls (Process i o e) -> IO r) -> IO r
