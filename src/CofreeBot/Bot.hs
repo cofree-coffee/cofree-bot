@@ -148,6 +148,9 @@ runMatrixBot session cache bot s = do
           roomsMap :: Map.Map T.Text JoinedRoomSync
           roomsMap = syncResult ^. _srRooms . _Just . _srrJoin . ifolded
 
+          invites :: [T.Text]
+          invites = fmap fst $ Map.toList $ syncResult ^. _srRooms . _Just . _srrInvite . ifolded
+
           roomEvents :: Map.Map T.Text [RoomEvent]
           roomEvents = roomsMap <&> view (_jrsTimeline . _tsEvents . _Just)
 
@@ -156,10 +159,14 @@ runMatrixBot session cache bot s = do
             (\rid es -> fmap ((RoomID rid, ) . view _reContent) es)
             roomEvents
 
+      liftIO $ print syncResult
       liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-      --print roomEvents
+      liftIO $ acceptInvites invites
       traverse_ (go ref) events
  where
+  acceptInvites :: [T.Text] -> IO ()
+  acceptInvites invites = traverse_ (joinRoom session) invites
+  
   go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
   go ref input = do
     state          <- liftIO $ readIORef ref
