@@ -89,9 +89,6 @@ instance Applicative f => Choice (Bot f s) where
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
 
--- whatever :: (forall p. Choice p => p a b -> p s t) -> (forall p. PointedChoice p => p a b -> p s t)
--- whatever f pab = _
-
 nudge
   :: Applicative m
   => Bot m s i o \/ Bot m s i' o'
