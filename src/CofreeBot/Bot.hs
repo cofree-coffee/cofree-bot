@@ -51,7 +51,7 @@ newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
 --------------------------------------------------------------------------------
 
 instance (Semigroup s, Semigroup o) => Semigroup (BotAction s o) where
-  (BotAction o s) <> (BotAction o' s') =
+  BotAction o s <> BotAction o' s' =
     BotAction { responses = o <> o', nextState = s <> s' }
 
 instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
