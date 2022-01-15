@@ -180,21 +180,23 @@ runMatrixBot session cache bot s = do
                                  responses
                                  txnIds
 
+simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
+simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
+  BotAction {..} <- bot (RoomID mempty, mkMsg i) s
+  pure $ BotAction (fmap (viewBody . snd) $ responses) s
+
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (to i) s
- where
-  viewBody :: Event -> T.Text
-  viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (viewBody i) s
 
-  to :: Event -> T.Text
-  to = viewBody
+viewBody :: Event -> T.Text
+viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
 
-  mkMsg :: T.Text -> Event
-  mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
-                                                               TextType
-                                                               Nothing
-                                                               Nothing
+mkMsg :: T.Text -> Event
+mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
+                                                             TextType
+                                                             Nothing
+                                                             Nothing
 
 --------------------------------------------------------------------------------
 -- Text Bot
