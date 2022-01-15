@@ -47,7 +47,7 @@ cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runTextBot (ghciBot process) mempty
+  runTextBot (simplifyMatrixBot $ bot process) mempty
 
 matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
