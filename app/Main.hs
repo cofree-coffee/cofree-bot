@@ -1,4 +1,5 @@
 {-# LANGUAGE NumDecimals #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 module Main where
 
 import           CofreeBot
@@ -27,6 +28,21 @@ main = do
       matrixMain session xdgCache
     CLI -> cliMain
 
+bot process = 
+  let calcBot =
+        liftSimpleBot
+          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+          $ sessionize mempty
+          $ calculatorBot
+      helloBot     = helloMatrixBot
+      coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
+      ghciBot'     = liftSimpleBot $ ghciBot process
+  in rmap (\(x :& y :& z :& q) -> x <> y <> z <> q)
+          $  calcBot
+          /\ helloBot
+          /\ coinFlipBot'
+          /\ ghciBot'
+
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
@@ -37,18 +53,4 @@ matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  let calcBot =
-        liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
-          $ sessionize mempty
-          $ calculatorBot
-      helloBot     = helloMatrixBot
-      coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
-      ghciBot'     = liftSimpleBot $ ghciBot process
-      bot =
-        rmap (\(x :& y :& z :& q) -> x <> y <> z <> q)
-          $  calcBot
-          /\ helloBot
-          /\ coinFlipBot'
-          /\ ghciBot'
-  runMatrixBot session xdgCache bot mempty
+  runMatrixBot session xdgCache (bot process) mempty
