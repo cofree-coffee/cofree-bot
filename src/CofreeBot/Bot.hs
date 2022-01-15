@@ -25,11 +25,30 @@ import           System.IO
 import           System.IO.Error                ( isDoesNotExistError )
 import           System.Random
 
+--------------------------------------------------------------------------------
+-- Kinds
+--------------------------------------------------------------------------------
+
+type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
+
+--------------------------------------------------------------------------------
+-- Types
+--------------------------------------------------------------------------------
+
 data BotAction s o = BotAction
   { responses :: o
   , nextState :: s
   }
   deriving Functor
+
+-- | A 'Bot' maps from some input type 'i' and a state 's' to an
+-- output type 'o' and a state 's'
+type Bot :: KBot
+newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+
+--------------------------------------------------------------------------------
+-- Instances
+--------------------------------------------------------------------------------
 
 instance (Semigroup s, Semigroup o) => Semigroup (BotAction s o) where
   (BotAction o s) <> (BotAction o' s') =
@@ -40,13 +59,6 @@ instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
 
 instance Bifunctor BotAction where
   bimap f g (BotAction a b) = BotAction (g a) (f b)
-
-type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
-
--- | A 'Bot' maps from some input type 'i' and a state 's' to an
--- output type 'o' and a state 's'
-type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
 
 instance Monad m => Cat.Category (Bot m s) where
   id = Bot $ \a s -> pure $ BotAction a s
@@ -69,17 +81,13 @@ instance Applicative f => Choice (Bot f s) where
   left' (Bot bot) = Bot $ either ((fmap . fmap . fmap) Left . bot)
                                  (\c s -> pure $ BotAction (Right c) s)
 
+--------------------------------------------------------------------------------
+-- Operations
+--------------------------------------------------------------------------------
+
 -- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
-
---------------------------------------------------------------------------------
--- Utils
---------------------------------------------------------------------------------
-
-class PointedChoice p where
-  pleft :: p a b -> p (x \?/ a) (x \?/ b)
-  pright :: p a b -> p (a \?/ x) (b \?/ x)
 
 -- whatever :: (forall p. Choice p => p a b -> p s t) -> (forall p. PointedChoice p => p a b -> p s t)
 -- whatever f pab = _
@@ -122,6 +130,7 @@ mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) =
   Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
+
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
