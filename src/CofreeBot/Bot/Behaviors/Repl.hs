@@ -23,5 +23,5 @@ replConfigs = Repls
   , ghci = ghciConfig
   , node = nodeConfig
   , mitScheme = mitSchemeConfig 
-  , sbcl = sbclConfig 
+  -- , sbcl = sbclConfig 
   }

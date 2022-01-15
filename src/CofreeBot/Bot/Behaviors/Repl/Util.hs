@@ -16,6 +16,14 @@ import           System.Process.Typed
 
 type ReplBot = Bot IO () T.Text [T.Text]
 
+data ReplConfig = ReplConfig
+  { rcPrompt :: T.Text
+  , rcImageName :: T.Text
+  , rcShellCmd :: T.Text
+  , rcStartupDelay :: Int
+  , rcLineDelay :: Int
+  }
+
 hGetOutput :: Handle -> IO String
 hGetOutput handle = whileM (hReady handle) (hGetChar handle)
 
@@ -43,7 +51,7 @@ data Repls a = Repls
   , ghci :: a
   , node :: a
   , mitScheme :: a
-  , sbcl :: a
+--  , sbcl :: a
   } deriving (Functor, Foldable, Traversable)
 
 withProcesses :: Repls (ProcessConfig i o e) -> (Repls (Process i o e) -> IO r) -> IO r
