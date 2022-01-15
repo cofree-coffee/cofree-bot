@@ -6,7 +6,7 @@ import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           Control.Monad
 import           Data.Profunctor
 import qualified Data.Text                     as T
-import           GHC.Conc                       ( threadDelay )
+import           GHC.Conc (threadDelay)
 import           Network.Matrix.Client
 import qualified Options.Applicative           as Opt
 import           OptionsParser
@@ -26,9 +26,9 @@ cliMain = withProcesses replConfigs  $ \Repls{..} -> do
   --runTextBot (rmap (\(x :& y) -> x <> y ) $ ghciBot' /\ calcBot) (mempty)
 
 matrixMain :: IO ()
-matrixMain = withProcessWait_ ghciConfig $ \process -> do
-  void $ threadDelay 1e6
-  void $ hGetOutput (getStdout process)
+matrixMain = withProcesses replConfigs $ \Repls{..} -> do
+  void $ threadDelay 1e7
+  void $ hGetOutput (getStdout ghci)
   command  <- Opt.execParser parserInfo
   xdgCache <- getUserCacheDir "cofree-bot"
   let calcBot =
@@ -38,13 +38,11 @@ matrixMain = withProcessWait_ ghciConfig $ \process -> do
           $ calculatorBot
       helloBot     = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
-      ghciBot'     = liftSimpleBot $ ghciBot process
       bot =
-        rmap (\(x :& y :& z :& q) -> x <> y <> z <> q)
+        rmap (\(x :& y :& z) -> x <> y <> z)
           $  calcBot
           /\ helloBot
           /\ coinFlipBot'
-          /\ ghciBot'
   case command of
     LoginCmd cred -> do
       session <- login cred
