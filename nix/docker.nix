@@ -7,6 +7,7 @@ pkgs.dockerTools.buildLayeredImage {
   contents = [
     pkgs.bash
     pkgs.cacert
+    pkgs.docker-client
   ];
   config = {
     Entrypoint = "${pkgs.bash}/bin/bash";

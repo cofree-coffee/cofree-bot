@@ -1,28 +1,34 @@
 {-# LANGUAGE NumDecimals #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 module Main where
 
 import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
+import           Control.Monad
 import           Data.Profunctor
 import qualified Data.Text                     as T
+import           GHC.Conc                       ( threadDelay )
 import           Network.Matrix.Client
 import qualified Options.Applicative           as Opt
 import           OptionsParser
 import           System.Environment.XDG.BaseDir ( getUserCacheDir )
-
---main :: IO ()
---main = withProcessWait_ ghciConfig $ \process -> do
---  runSimpleBot (simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot) mempty
---  runSimpleBot (ghciBot process) mempty
-
---  let ghciBot' = ghciBot process
---      calcBot = simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP $ sessionize mempty $ calculatorBot
---  runSimpleBot (rmap (\(x :& y) -> x <> y ) $ ghciBot' /\ calcBot) (mempty)
+import           System.Process.Typed
 
 main :: IO ()
 main = do
   command  <- Opt.execParser parserInfo
   xdgCache <- getUserCacheDir "cofree-bot"
+
+  case command of
+    LoginCmd cred -> do
+      session <- login cred
+      matrixMain session xdgCache
+    TokenCmd TokenCredentials {..} -> do
+      session <- createSession (getMatrixServer matrixServer) matrixToken
+      matrixMain session xdgCache
+    CLI -> cliMain
+
+bot process = 
   let calcBot =
         liftSimpleBot
           $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
@@ -30,15 +36,21 @@ main = do
           $ calculatorBot
       helloBot     = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
-      bot =
-        rmap (\(x :& y :& z) -> x <> y <> z)
+      ghciBot'     = liftSimpleBot $ ghciBot process
+  in rmap (\(x :& y :& z :& q) -> x <> y <> z <> q)
           $  calcBot
           /\ helloBot
           /\ coinFlipBot'
-  case command of
-    LoginCmd cred -> do
-      session <- login cred
-      runMatrixBot session xdgCache bot mempty
-    TokenCmd TokenCredentials {..} -> do
-      session <- createSession (getMatrixServer matrixServer) matrixToken
-      runMatrixBot session xdgCache bot mempty
+          /\ ghciBot'
+
+cliMain :: IO ()
+cliMain = withProcessWait_ ghciConfig $ \process -> do
+  void $ threadDelay 1e6
+  void $ hGetOutput (getStdout process)
+  runTextBot (simplifyMatrixBot $ bot process) mempty
+
+matrixMain :: ClientSession  -> String -> IO ()
+matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
+  void $ threadDelay 1e6
+  void $ hGetOutput (getStdout process)
+  runMatrixBot session xdgCache (bot process) mempty

@@ -20,14 +20,33 @@ import           System.Directory               ( createDirectoryIfMissing )
 import           System.IO
 import           System.Random
 
+--------------------------------------------------------------------------------
+-- Kinds
+--------------------------------------------------------------------------------
+
+type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
+
+--------------------------------------------------------------------------------
+-- Types
+--------------------------------------------------------------------------------
+
 data BotAction s o = BotAction
   { responses :: o
   , nextState :: s
   }
   deriving Functor
 
+-- | A 'Bot' maps from some input type 'i' and a state 's' to an
+-- output type 'o' and a state 's'
+type Bot :: KBot
+newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+
+--------------------------------------------------------------------------------
+-- Instances
+--------------------------------------------------------------------------------
+
 instance (Semigroup s, Semigroup o) => Semigroup (BotAction s o) where
-  (BotAction o s) <> (BotAction o' s') =
+  BotAction o s <> BotAction o' s' =
     BotAction { responses = o <> o', nextState = s <> s' }
 
 instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
@@ -35,13 +54,6 @@ instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
 
 instance Bifunctor BotAction where
   bimap f g (BotAction a b) = BotAction (g a) (f b)
-
-type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
-
--- | A 'Bot' maps from some input type 'i' and a state 's' to an
--- output type 'o' and a state 's'
-type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
 
 instance Monad m => Cat.Category (Bot m s) where
   id = Bot $ \a s -> pure $ BotAction a s
@@ -64,20 +76,13 @@ instance Applicative f => Choice (Bot f s) where
   left' (Bot bot) = Bot $ either ((fmap . fmap . fmap) Left . bot)
                                  (\c s -> pure $ BotAction (Right c) s)
 
+--------------------------------------------------------------------------------
+-- Operations
+--------------------------------------------------------------------------------
+
 -- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
-
---------------------------------------------------------------------------------
--- Utils
---------------------------------------------------------------------------------
-
-class PointedChoice p where
-  pleft :: p a b -> p (x \?/ a) (x \?/ b)
-  pright :: p a b -> p (a \?/ x) (b \?/ x)
-
--- whatever :: (forall p. Choice p => p a b -> p s t) -> (forall p. PointedChoice p => p a b -> p s t)
--- whatever f pab = _
 
 nudge
   :: Applicative m
@@ -179,6 +184,21 @@ runMatrixBot session cache bot s = do
     let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
     liftIO $ sequence_ $ zipWith (runMatrixAction session) txnIds responses 
 
+simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
+simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
+  BotAction {..} <- bot (RoomID mempty, mkRoomEvent i) s
+  pure $ BotAction (fmap (viewBody . mkEvent) responses) s
+  where
+    mkRoomEvent :: T.Text -> RoomEvent
+    mkRoomEvent msg =
+      RoomEvent (EventRoomMessage $ mkMsg msg) mempty (EventID mempty) (Author mempty)
+
+    mkEvent :: MatrixAction -> Event
+    mkEvent = \case
+      SendMessage MatrixMessage{..} -> mmEvent
+      SendReply MatrixReply{..} -> EventRoomReply (EventID mempty) (RoomMessageText mrMessage)
+
+
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot
   $ \(rid, i) s -> fmap (fmap  (fmap (SendMessage . mkMsg rid))) $ bot (viewBody i) s
@@ -189,6 +209,12 @@ liftSimpleBot (Bot bot) = Bot
   mkMsg :: RoomID -> T.Text -> MatrixMessage
   mkMsg rid' msg =
     MatrixMessage rid' $ EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
+
+viewBody :: Event -> T.Text
+viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+
+mkMsg :: T.Text -> RoomMessage
+mkMsg msg = RoomMessageText $ MessageText msg TextType Nothing Nothing
 
 --------------------------------------------------------------------------------
 -- Text Bot

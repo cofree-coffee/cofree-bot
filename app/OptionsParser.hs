@@ -78,7 +78,7 @@ parseServer = fmap MatrixServer $ Opt.strOption
 --- Main Parser ---
 -------------------
 
-data Command = LoginCmd LoginCredentials | TokenCmd TokenCredentials
+data Command = LoginCmd LoginCredentials | TokenCmd TokenCredentials | CLI
 
 mainParser :: Opt.Parser Command
 mainParser = Opt.subparser
@@ -90,8 +90,11 @@ mainParser = Opt.subparser
   <> Opt.command
        "run"
        (Opt.info (fmap TokenCmd parseTokenCredentials)
-                 (Opt.progDesc "Run a bot with an auth token")
+                 (Opt.progDesc "Run the bot with an auth token")
        )
+  <> Opt.command
+       "cli"
+       (Opt.info (pure CLI) (Opt.progDesc "Run the bot in the CLI"))
   )
 
 parserInfo :: Opt.ParserInfo Command

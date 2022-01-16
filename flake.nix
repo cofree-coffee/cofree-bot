@@ -73,7 +73,6 @@
             cabal2nix
             zlib
           ] ++ (builtins.attrValues scripts);
-          # ];
         };
 
         packages = flake-utils.lib.flattenTree {
