@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
@@ -5,6 +7,7 @@ import qualified Control.Arrow                 as Arrow
 import qualified Control.Category              as Cat
 import           Control.Lens            hiding ( from
                                                 , to
+                                                , re
                                                 )
 import           Control.Monad
 import           Control.Monad.Except
@@ -14,11 +17,13 @@ import           Data.Kind
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor
 import qualified Data.Text                     as T
-import           Network.Matrix.Client
+import qualified Network.Matrix.Client         as NMC
 import           Network.Matrix.Client.Lens
 import           System.Directory               ( createDirectoryIfMissing )
 import           System.IO
 import           System.Random
+import Data.Void
+import Control.Lens.Unsound
 
 --------------------------------------------------------------------------------
 -- Kinds
@@ -123,48 +128,93 @@ mapMaybeBot
 mapMaybeBot f (Bot bot) =
   Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
 
+roomMessageOfEvent :: Traversal' NMC.Event NMC.RoomMessage
+roomMessageOfEvent = _EventRoomMessage `adjoin` (_EventRoomReply . _2) `adjoin` (_EventRoomEdit . _2)
+    
+--------------------------------------------------------------------------------
+-- Bot Messaging API
+--------------------------------------------------------------------------------
+
+class MessagingAPI api where
+  type Channel api = (r :: Type) | r -> api
+  -- ^ The destination channel for them message. Eg., RoomID on Matrix.
+  type MessageReference api = (r :: Type) | r -> api
+  -- ^ The identifier for the incoming message.
+  type MessageContent api :: Type
+  -- ^ The message content to be sent out.
+  type Action api = (r :: Type) | r -> api
+  -- ^ The type of actions available on the api.
+
+  messageIsMention :: MessageReference api -> Bool
+  sendMessage :: Channel api -> MessageContent api -> Action api
+  reply :: Channel api -> MessageReference api -> MessageContent api -> Action api
+
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
 
-type MatrixBot m s = Bot m s (RoomID, RoomEvent) [MatrixAction]
+data Matrix
 
-data MatrixMessage = MatrixMessage { mmRid :: RoomID, mmEvent :: Event }
-data MatrixReply = MatrixReply { mrRid :: RoomID, mrOriginal :: RoomEvent, mrMessage :: MessageText }
+type MatrixBot m s = Bot m s (NMC.RoomID, NMC.RoomEvent) [MatrixAction]
+
+data MatrixMessage = MatrixMessage { mmRid :: NMC.RoomID, mmMessage :: NMC.MessageText }
+data MatrixReply = MatrixReply { mrRid :: NMC.RoomID, mrOriginal :: NMC.RoomEvent, mrMessage :: NMC.MessageText }
 data MatrixAction = SendMessage MatrixMessage | SendReply MatrixReply
 
-runMatrixAction :: ClientSession -> TxnID -> MatrixAction -> MatrixIO EventID
+instance MessagingAPI Matrix where
+  type Channel Matrix = NMC.RoomID
+  type MessageReference Matrix = NMC.RoomEvent 
+  -- ^ NOTE: For Matrix, we must use the full RoomEvent as the Identifier
+  type MessageContent Matrix = NMC.MessageText 
+  type Action Matrix = MatrixAction
+
+  messageIsMention re = 
+    let tag = "<a href=\"https://matrix.to/#/@cofree-bot:cofree.coffee\">cofree-bot</a>"
+    in case preview (_reContent . roomMessageOfEvent . _RoomMessageText . _mtFormattedBody . _Just) re of
+      Just msg ->
+        if tag `T.isInfixOf` msg
+          then True
+          else False
+      Nothing -> False
+
+  sendMessage :: NMC.RoomID -> NMC.MessageText -> MatrixAction
+  sendMessage rid = SendMessage . MatrixMessage rid
+
+  reply :: NMC.RoomID -> NMC.RoomEvent -> NMC.MessageText -> MatrixAction
+  reply rid roomEvent = SendReply . MatrixReply rid roomEvent
+
+runMatrixAction :: NMC.ClientSession -> NMC.TxnID -> MatrixAction -> NMC.MatrixIO NMC.EventID
 runMatrixAction session txnId = \case
-  SendMessage (MatrixMessage {..}) -> sendMessage session mmRid mmEvent txnId
+  SendMessage (MatrixMessage {..}) -> NMC.sendMessage session mmRid (NMC.EventRoomMessage $ NMC.RoomMessageText mmMessage) txnId
   SendReply (MatrixReply {..}) -> let
-    event = mkReply mrRid mrOriginal mrMessage
-    in sendMessage session mrRid event txnId
+    event = NMC.mkReply mrRid mrOriginal mrMessage
+    in NMC.sendMessage session mrRid event txnId
 
 runMatrixBot
-  :: forall s . ClientSession -> String -> MatrixBot IO s -> s -> IO ()
+  :: forall s . NMC.ClientSession -> String -> MatrixBot IO s -> s -> IO ()
 runMatrixBot session cache bot s = do
   ref <- newIORef s
   createDirectoryIfMissing True cache
   since <- readFileMaybe $ cache <> "/since_file"
   void $ runExceptT $ do
-    userId   <- ExceptT $ getTokenOwner session
-    filterId <- ExceptT $ createFilter session userId messageFilter
-    syncPoll session (Just filterId) since (Just Online) $ \syncResult -> do
+    userId   <- ExceptT $ NMC.getTokenOwner session
+    filterId <- ExceptT $ NMC.createFilter session userId NMC.messageFilter
+    NMC.syncPoll session (Just filterId) since (Just NMC.Online) $ \syncResult -> do
       let newSince :: T.Text
           newSince = syncResult ^. _srNextBatch
 
-          roomsMap :: Map.Map T.Text JoinedRoomSync
+          roomsMap :: Map.Map T.Text NMC.JoinedRoomSync
           roomsMap = syncResult ^. _srRooms . _Just . _srrJoin . ifolded
 
           invites :: [T.Text]
           invites = fmap fst $ Map.toList $ syncResult ^. _srRooms . _Just . _srrInvite . ifolded
 
-          roomEvents :: Map.Map T.Text [RoomEvent]
+          roomEvents :: Map.Map T.Text [NMC.RoomEvent]
           roomEvents = roomsMap <&> view (_jrsTimeline . _tsEvents . _Just)
 
-          events :: [(RoomID, RoomEvent)]
-          events = Map.foldMapWithKey
-            (\rid es -> fmap ((RoomID rid, ) . id) es)
+          events :: [(NMC.RoomID, NMC.RoomEvent)]
+          events = filter ((/= "@cofree-bot:cofree.coffee") . NMC.unAuthor . NMC.reSender . snd) $ Map.foldMapWithKey
+            (\rid es -> fmap ((NMC.RoomID rid, ) . id) es)
             roomEvents
 
       liftIO $ print syncResult
@@ -173,52 +223,65 @@ runMatrixBot session cache bot s = do
       traverse_ (go ref) events
  where
   acceptInvites :: [T.Text] -> IO ()
-  acceptInvites invites = traverse_ (joinRoom session) invites
+  acceptInvites invites = traverse_ (NMC.joinRoom session) invites
   
-  go :: MonadIO m => IORef s -> (RoomID, RoomEvent) -> m ()
+  go :: MonadIO m => IORef s -> (NMC.RoomID, NMC.RoomEvent) -> m ()
   go ref input = do
     gen            <- newStdGen
     state          <- liftIO $ readIORef ref
     BotAction {..} <- liftIO $ runBot bot input state
     liftIO $ writeIORef ref nextState
-    let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
+    let txnIds = (NMC.TxnID . T.pack . show <$> randoms @Int gen)
     liftIO $ sequence_ $ zipWith (runMatrixAction session) txnIds responses 
 
+-- | This function throws away all awareness of rooms.
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
-  BotAction {..} <- bot (RoomID mempty, mkRoomEvent i) s
+  BotAction {..} <- bot (NMC.RoomID mempty, mkRoomEvent i) s
   pure $ BotAction (fmap (viewBody . mkEvent) responses) s
   where
-    mkRoomEvent :: T.Text -> RoomEvent
+    mkRoomEvent :: T.Text -> NMC.RoomEvent
     mkRoomEvent msg =
-      RoomEvent (EventRoomMessage $ mkMsg msg) mempty (EventID mempty) (Author mempty)
-
-    mkEvent :: MatrixAction -> Event
-    mkEvent = \case
-      SendMessage MatrixMessage{..} -> mmEvent
-      SendReply MatrixReply{..} -> EventRoomReply (EventID mempty) (RoomMessageText mrMessage)
-
+      NMC.RoomEvent (NMC.EventRoomMessage $ mkRoomMessage msg) mempty (NMC.EventID mempty) (NMC.Author mempty)
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
-liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap  (fmap (SendMessage . mkMsg rid))) $ bot (viewBody i) s
- where
-  viewBody :: RoomEvent -> T.Text
-  viewBody = (view (_reContent . _EventRoomMessage . _RoomMessageText . _mtBody))
+liftSimpleBot (Bot bot) = Bot $ \(rid, i) s ->
+  fmap (fmap (fmap (sendMessage rid . mkMessageText))) $ bot (viewBody $ NMC.reContent i) s
 
-  mkMsg :: RoomID -> T.Text -> MatrixMessage
-  mkMsg rid' msg =
-    MatrixMessage rid' $ EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
-
-viewBody :: Event -> T.Text
+viewBody :: NMC.Event -> T.Text
 viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
 
-mkMsg :: T.Text -> RoomMessage
-mkMsg msg = RoomMessageText $ MessageText msg TextType Nothing Nothing
+mkMessageText :: T.Text -> NMC.MessageText
+mkMessageText msg = NMC.MessageText msg NMC.TextType Nothing Nothing
+
+mkRoomMessage :: T.Text -> NMC.RoomMessage
+mkRoomMessage = NMC.RoomMessageText . mkMessageText
+
+mkEvent :: MatrixAction -> NMC.Event
+mkEvent = \case
+  SendMessage MatrixMessage{..} -> NMC.EventRoomMessage $ NMC.RoomMessageText mmMessage
+  SendReply MatrixReply{..} -> NMC.EventRoomReply (NMC.EventID mempty) (NMC.RoomMessageText mrMessage)
 
 --------------------------------------------------------------------------------
 -- Text Bot
 --------------------------------------------------------------------------------
+
+data Repl
+
+data TextAction
+  = TASendMessage T.Text
+  | TAReply T.Text T.Text
+
+instance MessagingAPI Repl where
+  type Channel Repl = ()
+  type MessageReference Repl = Void 
+  -- ^ The Repl protocol does not support replies.
+  type MessageContent Repl = T.Text
+  type Action Repl = TextAction
+
+  messageIsMention = const False
+  sendMessage _ = TASendMessage
+  reply _ = absurd
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.

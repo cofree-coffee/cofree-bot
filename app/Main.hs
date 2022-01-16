@@ -53,4 +53,4 @@ matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runMatrixBot session xdgCache (bot process) mempty
+  runMatrixBot session xdgCache (helloSimpleBot') ()
