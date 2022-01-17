@@ -34,14 +34,17 @@ runMatches :: [Match] -> Text -> [Text]
 runMatches ms = flip foldMap ms $ \m t ->
   case runMatcher (mMatch m) t of
     False -> empty
-    True -> pure $ mResp m
+    True -> [ mResp m, "HAH GOTTEM" ]
+
+what :: Matcher
+what = "what" ||| "What" ||| "WHAT"
 
 
 ligmaSimpleBot :: Applicative m => Bot m s Text [Text]
 ligmaSimpleBot = pureStatelessBot $ runMatches
-  [ Match ("what" <> "ligma") "ligma balls LOL"
-  , Match ("what" <> "updog") "nothin much whats up with you dog"
-  , Match ("what" <> "sugondese") "sugondese nuts"
+  [ Match (what <> "ligma") "ligma balls"
+  , Match (what <> "updog") "nothin much whats up with you dog"
+  , Match (what <> "sugondese") "sugondese nuts"
   ]
 
 
