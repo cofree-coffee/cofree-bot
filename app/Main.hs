@@ -4,6 +4,7 @@ module Main where
 
 import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
+import           CofreeBot.Bot.Behaviors.Ligma
 import           Control.Monad
 import           Data.Profunctor
 import qualified Data.Text                     as T
@@ -28,7 +29,7 @@ main = do
       matrixMain session xdgCache
     CLI -> cliMain
 
-bot process = 
+bot process =
   let calcBot =
         liftSimpleBot
           $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
@@ -37,11 +38,12 @@ bot process =
       helloBot     = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'     = liftSimpleBot $ ghciBot process
-  in rmap (\(x :& y :& z :& q) -> x <> y <> z <> q)
+  in rmap (\(x :& y :& z :& q :& w) -> x <> y <> z <> q <> w)
           $  calcBot
           /\ helloBot
           /\ coinFlipBot'
           /\ ghciBot'
+          /\ ligmaMatrixBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
