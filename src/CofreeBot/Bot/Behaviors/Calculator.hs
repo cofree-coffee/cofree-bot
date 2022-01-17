@@ -14,9 +14,9 @@ calculatorBot :: CalculatorBot
 calculatorBot = Bot $ \program state ->
   fmap (uncurry BotAction) $ interpretProgram program state
 
-parseErrorBot :: Applicative m => Bot m s ParseError T.Text
+parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
-  "Failed to parse msg: \""
+  pure $ "Failed to parse msg: \""
     <> parseInput
     <> "\". Error message was: \""
     <> parseError
@@ -27,9 +27,7 @@ simplifyCalculatorBot
   => Bot m s Program (Either CalcError [CalcResp])
   -> Bot m s T.Text [T.Text]
 simplifyCalculatorBot bot =
-  dimap parseProgram indistinct
-    $  rmap (: [])          parseErrorBot
-    \/ rmap printCalcOutput bot
+  dimap parseProgram indistinct $ parseErrorBot \/ rmap printCalcOutput bot
 
 printCalcOutput :: Either CalcError [CalcResp] -> [T.Text]
 printCalcOutput = \case
