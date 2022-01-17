@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-
-module CofreeBot.Bot.Behaviors.Ligma where
+module CofreeBot.Bot.Behaviors.Updog where
 
 import           CofreeBot.Bot
 import           Control.Applicative (liftA2, empty)
@@ -40,14 +39,12 @@ what :: Matcher
 what = "what" ||| "What" ||| "WHAT"
 
 
-ligmaSimpleBot :: Applicative m => Bot m s Text [Text]
-ligmaSimpleBot = pureStatelessBot $ runMatches
-  [ Match (what <> "ligma") "ligma balls"
-  , Match (what <> "updog") "nothin much whats up with you dog"
-  , Match (what <> "sugondese") "sugondese nuts"
+updogSimpleBot :: Applicative m => Bot m s Text [Text]
+updogSimpleBot = pureStatelessBot $ runMatches
+  [ Match (what <> "updog") "nothin much whats up with you dog"
+  , Match (what <> "snakesay") "Hissss, hisssss"
   ]
 
-
-ligmaMatrixBot :: Applicative m => MatrixBot m ()
-ligmaMatrixBot = liftSimpleBot ligmaSimpleBot
+updogMatrixBot :: Applicative m => MatrixBot m ()
+updogMatrixBot = liftSimpleBot updogSimpleBot
 

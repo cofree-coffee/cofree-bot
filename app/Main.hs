@@ -4,7 +4,6 @@ module Main where
 
 import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
-import           CofreeBot.Bot.Behaviors.Ligma
 import           Control.Monad
 import           Data.Profunctor
 import qualified Data.Text                     as T
@@ -43,7 +42,7 @@ bot process =
           /\ helloBot
           /\ coinFlipBot'
           /\ ghciBot'
-          /\ ligmaMatrixBot
+          /\ updogMatrixBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do

@@ -76,7 +76,7 @@ library
     CofreeBot.Bot.Behaviors.CoinFlip
     CofreeBot.Bot.Behaviors.GHCI
     CofreeBot.Bot.Behaviors.Hello
-    CofreeBot.Bot.Behaviors.Ligma
+    CofreeBot.Bot.Behaviors.Updog
     CofreeBot.Bot.Context
     CofreeBot.Utils
 
