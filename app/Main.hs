@@ -37,12 +37,13 @@ bot process =
       helloBot     = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'     = liftSimpleBot $ ghciBot process
-  in rmap (\(x :& y :& z :& q :& w) -> x <> y <> z <> q <> w)
+  in rmap (\(x :& y :& z :& q :& w :& p) -> x <> y <> z <> q <> w <> p)
           $  calcBot
           /\ helloBot
           /\ coinFlipBot'
           /\ ghciBot'
           /\ updogMatrixBot
+          /\ liftSimpleBot jitsiBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do

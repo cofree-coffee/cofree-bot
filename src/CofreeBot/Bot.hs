@@ -128,6 +128,9 @@ mapMaybeBot
 mapMaybeBot f (Bot bot) =
   Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
 
+emptyBot :: (Monoid o, Applicative m) => Bot m s i o
+emptyBot = pureStatelessBot $ const mempty
+
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
@@ -163,7 +166,7 @@ runMatrixBot session cache bot s = do
             roomEvents
 
       liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-      --print roomEvents
+      liftIO $ print roomEvents
       traverse_ (go ref) events
  where
   go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
@@ -180,7 +183,7 @@ runMatrixBot session cache bot s = do
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
   BotAction {..} <- bot (RoomID mempty, mkMsg i) s
-  pure $ BotAction (fmap (viewBody . snd) $ responses) s
+  pure $ BotAction (fmap (viewBody . snd) $ responses) nextState
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot

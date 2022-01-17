@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module CofreeBot.Bot.Behaviors.Updog where
 
 import           CofreeBot.Bot
@@ -28,7 +27,6 @@ data Match = Match
   , mResp :: Text
   }
 
-
 runMatches :: [Match] -> Text -> [Text]
 runMatches ms = flip foldMap ms $ \m t ->
   case runMatcher (mMatch m) t of
@@ -38,11 +36,11 @@ runMatches ms = flip foldMap ms $ \m t ->
 what :: Matcher
 what = "what" ||| "What" ||| "WHAT"
 
-
 updogSimpleBot :: Applicative m => Bot m s Text [Text]
 updogSimpleBot = pureStatelessBot $ runMatches
   [ Match (what <> "updog") "nothin much whats up with you dog"
   , Match (what <> "snakesay") "Hissss, hisssss"
+  , Match (what <> "OPP") "yo, you know me!"
   ]
 
 updogMatrixBot :: Applicative m => MatrixBot m ()

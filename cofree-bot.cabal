@@ -76,6 +76,8 @@ library
     CofreeBot.Bot.Behaviors.CoinFlip
     CofreeBot.Bot.Behaviors.GHCI
     CofreeBot.Bot.Behaviors.Hello
+    CofreeBot.Bot.Behaviors.Jitsi
+    CofreeBot.Bot.Behaviors.Jitsi.Dictionary
     CofreeBot.Bot.Behaviors.Updog
     CofreeBot.Bot.Context
     CofreeBot.Utils
@@ -86,9 +88,11 @@ library
     , containers
     , directory
     , hint
+    , http-client
     , lens
     , monad-loops
     , mtl
     , pretty-simple
     , process
     , random
+    , vector
