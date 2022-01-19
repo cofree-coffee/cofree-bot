@@ -9,8 +9,11 @@ module CofreeBot.Bot.Behaviors.Calculator
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           CofreeBot.Utils
+import           CofreeBot.Utils.ListT          ( toListT )
 import           Control.Monad.Reader
 import           Control.Monad.State
+import           Data.Bifunctor                 ( first )
+import           Data.Bitraversable
 import           Data.Functor
 import           Data.Profunctor
 import qualified Data.Text                     as T
@@ -25,21 +28,29 @@ calculatorBot = do
   program <- ask
   state (interpretProgram program)
 
-parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
-parseErrorBot = pureStatelessBot $ \ParseError {..} ->
-  pure
-    $  "Failed to parse msg: \""
-    <> parseInput
-    <> "\". Error message was: \""
-    <> parseError
-    <> "\"."
+parseErrorBot :: Monad m => Bot m s ParseError T.Text
+parseErrorBot = Bot $ \s ParseError {..} ->
+  let errorMsg =
+        "Failed to parse msg: \""
+          <> parseInput
+          <> "\". Error message was: \""
+          <> parseError
+          <> "\"."
+  in  pure (errorMsg, s)
 
 simplifyCalculatorBot
-  :: Applicative m
+  :: forall m s
+   . Monad m
   => Bot m s Program (Either CalcError [CalcResp])
-  -> Bot m s T.Text [T.Text]
-simplifyCalculatorBot bot =
-  dimap parseProgram indistinct $ parseErrorBot \/ rmap printCalcOutput bot
+  -> Bot m s T.Text T.Text
+simplifyCalculatorBot (Bot bot) =
+  dimap parseProgram indistinct $ parseErrorBot \/ serializedBot -- rmap (_ . printCalcOutput) bot
+ where
+  serializedBot :: Bot m s Program T.Text
+  serializedBot = Bot $ \s i -> do
+    result <- bot s i
+    let resps = bitraverse id pure $ first printCalcOutput result
+    toListT resps
 
 printCalcOutput :: Either CalcError [CalcResp] -> [T.Text]
 printCalcOutput = \case

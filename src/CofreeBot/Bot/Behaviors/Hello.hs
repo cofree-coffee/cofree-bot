@@ -8,20 +8,21 @@ module CofreeBot.Bot.Behaviors.Hello
 --------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
+import           CofreeBot.Utils.ListT          ( emptyListT )
 import qualified Data.Text                     as T
 
 --------------------------------------------------------------------------------
 
 -- | A pure, stateless bot which simply takes a 'T.Text' input and
 -- produces a 'T.Text' output from it.
-helloSimpleBot :: Applicative m => TextBot m s
-helloSimpleBot = pureStatelessBot $ \msg ->
+helloSimpleBot :: Monad m => TextBot m s
+helloSimpleBot = Bot $ \s msg ->
   let name = "cofree-bot"
   in  if name `T.isInfixOf` msg
-        then pure "Are you talking to me, punk?"
-        else mempty
+        then pure ("Are you talking to me, punk?", s)
+        else emptyListT
 
 -- | We can then embed our bot in the Matrix API using
 -- 'liftSimpleBot'.
-helloMatrixBot :: Applicative m => MatrixBot m ()
+helloMatrixBot :: Monad m => MatrixBot m ()
 helloMatrixBot = liftSimpleBot $ helloSimpleBot

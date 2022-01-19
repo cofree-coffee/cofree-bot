@@ -22,12 +22,13 @@ module CofreeBot.Bot.Context
 --------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
+import           CofreeBot.Utils.ListT          ( emptyListT )
 import           Control.Applicative
 import qualified Control.Arrow                 as Arrow
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( Bifunctor(first) )
-import           Data.IntMap                    ( IntMap )
-import qualified Data.IntMap                   as IntMap
+import qualified Data.IntMap.Strict            as IntMap
+import           Data.IntMap.Strict             ( IntMap )
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T
 import           Network.Matrix.Client
@@ -128,23 +129,23 @@ parseSessionInfo p = do
 -- with other bots.
 simplifySessionBot
   :: forall m s i o
-   . (Show s, Applicative m)
+   . (Show s, Monad m)
   => (o -> T.Text)
   -> Parser i
   -> Bot m s (SessionInput i) (SessionOutput o)
   -> TextBot m s
 simplifySessionBot tshow p (Bot bot) = Bot $ \s i -> do
   case to i of
-    Left  _  -> pure $ (,) [] s
+    Left  _  -> emptyListT
     Right si -> fmap (Arrow.first from) $ bot s si
  where
   to :: T.Text -> Either T.Text (SessionInput i)
   to = fmap (first T.pack) $ parseOnly $ parseSessionInfo p
 
-  from :: SessionOutput o -> [T.Text]
+  from :: SessionOutput o -> T.Text
   from = \case
     SessionOutput n o ->
-      pure $ "Session '" <> T.pack (show n) <> "' Output:\n" <> tshow o
-    SessionStarted n -> pure $ "Session Started: '" <> T.pack (show n) <> "'."
-    SessionEnded   n -> pure $ "Session Ended: '" <> T.pack (show n) <> "'."
-    InvalidSession n -> pure $ "Invalid Session: '" <> T.pack (show n) <> "'."
+      "Session '" <> T.pack (show n) <> "' Output:\n" <> tshow o
+    SessionStarted n -> "Session Started: '" <> T.pack (show n) <> "'."
+    SessionEnded   n -> "Session Ended: '" <> T.pack (show n) <> "'."
+    InvalidSession n -> "Invalid Session: '" <> T.pack (show n) <> "'."

@@ -10,6 +10,8 @@ module CofreeBot.Bot
   , nudgeLeft
   , nudgeRight
   , (/\)
+  , (/.\)
+  , (/+\)
   , (\/)
   , pureStatelessBot
   , emptyBot
@@ -38,8 +40,8 @@ module CofreeBot.Bot
 --------------------------------------------------------------------------------
 
 import           CofreeBot.Utils
+import           CofreeBot.Utils.ListT
 import qualified Control.Arrow                 as Arrow
-import qualified Control.Category              as Cat
 import           Control.Exception              ( catch
                                                 , throwIO
                                                 )
@@ -53,8 +55,7 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Bifunctor                 ( Bifunctor(..) )
-import           Data.Fix                       ( Fix(..) )
-import           Data.Foldable
+import           Data.Fix                       ( Fix(Fix) )
 import           Data.Functor                   ( (<&>) )
 import           Data.Kind
 import qualified Data.Map.Strict               as Map
@@ -62,6 +63,7 @@ import           Data.Profunctor
 import           Data.Profunctor.Traversing
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
+import           Data.These
 import           Network.Matrix.Client
 import           Network.Matrix.Client.Lens
 import           System.Directory               ( createDirectoryIfMissing )
@@ -76,10 +78,10 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
 type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: s -> i -> m (o, s) }
+newtype Bot m s i o = Bot { runBot :: s -> i -> ListT m (o, s) }
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
-  via StateT s (ReaderT i m)
+  via StateT s (ReaderT i (ListT m))
 
 instance Functor f => Profunctor (Bot f s) where
   dimap f g (Bot bot) = do
@@ -87,103 +89,6 @@ instance Functor f => Profunctor (Bot f s) where
 
 instance Functor f => Strong (Bot f s) where
   first' (Bot bot) = Bot $ \s (a, c) -> fmap (Arrow.first (, c)) $ bot s a
-
-instance Applicative f => Choice (Bot f s) where
-  left' (Bot bot) = Bot $ \s ->
-    either (fmap (Arrow.first Left) . bot s) (\c -> pure $ (,) (Right c) s)
-
-instance Monad m => Cat.Category (Bot m s) where
-  id = ask
-
-  Bot f . Bot g = do
-    i        <- ask
-    s        <- get
-    (b, s' ) <- liftEffect $ g s i
-    (c, s'') <- liftEffect $ f s' b
-    put s''
-    pure c
-
-instance Monad m => Arrow.Arrow (Bot m s) where
-  arr f = rmap f Cat.id
-  first = first'
-
--- | 'Bot' is an invariant functor on @s@ but our types don't quite
--- fit the @Invariant@ typeclass.
-invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
-invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
-
-mapMaybeBot
-  :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
-mapMaybeBot f (Bot bot) =
-  Bot $ \s i -> maybe (pure ((,) mempty s)) (bot s) $ f i
-
--- | Given the sum of two bots, produce a bot who receives the sum of
--- the inputs to the input bots and produces a wedge product of their
--- outputs.
-nudge
-  :: Applicative m
-  => Bot m s i o \/ Bot m s i' o'
-  -> Bot m s (i \/ i') (o \?/ o')
-nudge = either
-  (\(Bot b) -> Bot $ \s -> either
-    (fmap (fmap (Arrow.first (Just . Left))) $ b s)
-    (const $ pure $ (,) Nothing s)
-  )
-  (\(Bot b) -> Bot $ \s -> either
-    (const $ pure $ (,) Nothing s)
-    (fmap (fmap (Arrow.first (Just . Right))) $ b s)
-  )
-
--- | Nudge a bot into the left side of a bot with a summed input and
--- wedge product output.
-nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
-nudgeLeft = nudge . Left
-
--- | Nudge a bot into the right side of a bot with a summed input and
--- wedge product output.
-nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
-nudgeRight = nudge . Right
-
--- | Tuple the states and outputs of two bots who operate on the same
--- input @i@.
-infixr /\
-(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
-(/\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
-  (nextState , responses ) <- b1 s i
-  (nextState', responses') <- b2 s' i
-  pure $ (,) (nextState, nextState') (responses, responses')
-
--- | Sum the inputs and outputs of two bots who operate on the same
--- state @s@.
---
--- This allows us to combine the behaviors of two bots such that only
--- one or the other bot will be executed depending on the input
--- provided.
-infixr \/
-(\/)
-  :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
-(\/) (Bot b1) (Bot b2) = Bot $ \s ->
-  either (fmap (Arrow.first Left) . b1 s) (fmap (Arrow.first Right) . b2 s)
-
--- | Construct a 'Bot' which maps from @i@ to @o@ without using its
--- state @s@ or monadic action @m@.
-pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
-pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
-
--- | Lift the @Monoid o@ unit value into @Bot m s i o@.
-emptyBot :: (Monoid o, Applicative m) => Bot m s i o
-emptyBot = pureStatelessBot $ const mempty
-
--- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
--- @Bot m s i o@ to @Bot n s i o@
-hoistBot :: (forall x . m x -> n x) -> Bot m s i o -> Bot n s i o
-hoistBot f (Bot b) = Bot $ fmap (fmap f) b
-
--- | Lift a monadic effect @m o@ into a @Bot m s i o@.
-liftEffect :: Monad m => m o -> Bot m s i o
-liftEffect m = Bot $ \s _ -> do
-  o <- m
-  pure (o, s)
 
 --------------------------------------------------------------------------------
 
@@ -193,17 +98,13 @@ liftEffect m = Bot $ \s _ -> do
 -- hide the state threading when interpreting a 'Bot' with some 'Env'.
 --
 -- See 'annihilate' for how this interaction occurs in practice.
-newtype Behavior m i o = Behavior { runBehavior :: i -> m (o, (Behavior m i o)) }
-
-instance Functor m => Functor (Behavior m i)
-  where
-  fmap f (Behavior b) = Behavior $ fmap (fmap (bimap f (fmap f))) b
+newtype Behavior m i o = Behavior { runBehavior :: i -> ListT m (o, (Behavior m i o)) }
 
 instance Functor m => Profunctor (Behavior m)
   where
   dimap f g (Behavior b) = Behavior $ dimap f (fmap (bimap g (dimap f g))) b
 
-instance Applicative m => Choice (Behavior m)
+instance Monad m => Choice (Behavior m)
   where
   left' (Behavior b) = Behavior $ either
     (fmap (bimap Left left') . b)
@@ -216,6 +117,7 @@ instance Functor m => Strong (Behavior m)
 instance Monad m => Traversing (Behavior m)
   where
   -- TODO: write wander instead for efficiency
+
   traverse' b = Behavior $ \is ->
     fmap (uncurry (,) . fmap traverse') $ flip runStateT b $ traverse
       (\i -> StateT $ \(Behavior b') ->
@@ -249,12 +151,26 @@ fixBot (Bot b) = go
 -- prior 'Bot' output @o@ to produce the new state @s'@.
 -- 4. Repeat from step 2 with @s'@ and @i'@.
 type Env :: KBot
-newtype Env m s o i = Env { runEnv :: s -> m (i, o -> s) }
+newtype Env m s o i = Env { runEnv :: s -> ListT m (i, o -> s) }
   deriving (Functor)
 
 instance Functor m => Profunctor (Env m s)
   where
   dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap f))) env
+
+--------------------------------------------------------------------------------
+
+-- | The fixed point of an 'Env'. Like in 'Behavior' we have factored
+-- out the @s@ parameter to hide the state threading.
+--
+-- See 'annihilate' for how this interaction occurs in practice.
+newtype Server m o i = Server { runServer :: ListT m (i, o -> Server m o i) }
+  deriving (Functor)
+
+instance Functor m => Profunctor (Server m)
+  where
+  dimap f g (Server serve) =
+    Server $ fmap (bimap g (dimap f (dimap f g))) serve
 
 -- | Generate the fixed point of @Env m s o i@ by recursively
 -- construction an @s -> Server m o i@ action and tupling it with
@@ -266,34 +182,108 @@ fixEnv (Env b) = go
   go s = Server $ fmap (fmap (fmap go)) $ b s
 
 --------------------------------------------------------------------------------
+-- Operations
 
--- | The fixed point of an 'Env'. Like in 'Behavior' we have factored
--- out the @s@ parameter to hide the state threading.
+-- | 'Bot' is an invariant functor on @s@ but our types don't quite
+-- fit the @Invariant@ typeclass.
+invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
+invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
+
+-- | Given the sum of two bots, produce a bot who receives the sum of
+-- the inputs to the input bots and produces a wedge product of their
+-- outputs.
+nudge
+  :: Monad m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
+nudge = either
+  (\(Bot b) -> Bot $ \s -> either
+    (fmap (fmap (Arrow.first (Just . Left))) $ b s)
+    (const $ pure $ (,) Nothing s)
+  )
+  (\(Bot b) -> Bot $ \s -> either
+    (const $ pure $ (,) Nothing s)
+    (fmap (fmap (Arrow.first (Just . Right))) $ b s)
+  )
+
+-- | Nudge a bot into the left side of a bot with a summed input and
+-- wedge product output.
+nudgeLeft :: Monad m => Bot m s i o -> Bot m s (i \/ i') (o \*/ o')
+nudgeLeft = nudge . Left
+
+-- | Nudge a bot into the right side of a bot with a summed input and
+-- wedge product output.
+nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
+nudgeRight = nudge . Right
+
+-- | Tuple the states and outputs of two bots who operate on the same
+-- input @i@.
+infixr /\
+(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
+(/\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
+  (nextState , responses ) <- b1 s i
+  (nextState', responses') <- b2 s' i
+  pure $ (,) (nextState, nextState') (responses, responses')
+
+-- | Runs two bots on the same input and then interleaves their output.
+infixr /+\
+(/+\)
+  :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
+(/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
+  interleaveListT (b1 s i) (b2 s' i) <&> \case
+    This (o , _s )          -> (This o, (s, s'))
+    That (o', _s')          -> (That o', (s, s'))
+    These (o, _s) (o', _s') -> (These o o', (s, s'))
+
+-- | Runs two bots on the same input and then interleaves their
+-- output, sequencing if they both return an output for the same
+-- input.
+infixr /.\
+(/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
+(/.\) (Bot b1) (Bot b2) = Bot $ \(s1, s2) i -> do
+  interleaveListT (b1 s1 i) (b2 s2 i) >>= \case
+    This (o , s1')           -> pure (o, (s1', s2))
+    That (o', s2')           -> pure (o', (s1, s2'))
+    These (o, s1') (o', s2') -> toListT [(o, (s1', s2)), (o', (s1', s2'))]
+
+-- | Sum the inputs and outputs of two bots who operate on the same
+-- state @s@.
 --
--- See 'annihilate' for how this interaction occurs in practice.
-newtype Server m o i = Server { runServer :: m (i, o -> Server m o i) }
-  deriving (Functor)
+-- This allows us to combine the behaviors of two bots such that only
+-- one or the other bot will be executed depending on the input
+-- provided.
+infixr \/
+(\/)
+  :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+(\/) (Bot b1) (Bot b2) = Bot $ \s ->
+  either (fmap (Arrow.first Left) . b1 s) (fmap (Arrow.first Right) . b2 s)
 
-instance Functor m => Profunctor (Server m)
-  where
-  dimap f g (Server serve) =
-    Server $ fmap (bimap g (dimap f (dimap f g))) serve
+-- | Construct a 'Bot' which maps from @i@ to @o@ without using its
+-- state @s@ or monadic action @m@.
+pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
+pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
 
--- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
--- monadic action @m@.
-annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
-annihilate (Server server) (Behavior botBehaviorbot) = Fix $ do
-  (i, nextServer  ) <- server
-  (o, botBehavior') <- botBehaviorbot i
-  let server' = nextServer o
-  pure $ annihilate server' botBehavior'
+mapMaybeBot
+  :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
+mapMaybeBot f (Bot bot) =
+  Bot $ \s i -> maybe (singletonListT (mempty, s)) (bot s) (f i)
 
-loop :: Monad m => Fix m -> m x
-loop (Fix x) = x >>= loop
+-- | Lift the @Monoid o@ unit value into @Bot m s i o@.
+emptyBot :: (Monoid o, Monad m) => Bot m s i o
+emptyBot = pureStatelessBot $ const mempty
+
+-- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
+-- @Bot m s i o@ to @Bot n s i o@
+hoistBot :: Functor n => (forall x . m x -> n x) -> Bot m s i o -> Bot n s i o
+hoistBot f (Bot b) = Bot $ \s i -> hoistListT f $ b s i
+
+-- | Lift a monadic effect @m o@ into a @Bot m s i o@.
+liftEffect :: Monad m => m o -> Bot m s i o
+liftEffect m = Bot $ \s _ -> ListT $ do
+  o <- m
+  pure $ ConsF (o, s) (ListT $ pure NilF)
 
 --------------------------------------------------------------------------------
 
-type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
+type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, Event)
 
 liftMatrixIO :: (MonadIO m, MonadError MatrixError m) => MatrixIO x -> m x
 liftMatrixIO m = liftEither =<< liftIO m
@@ -361,11 +351,11 @@ matrix session cache = Server $ do
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \s i -> do
   (responses, nextState) <- bot s (RoomID mempty, mkMsg i)
-  pure $ (,) (fmap (viewBody . snd) $ responses) nextState
+  pure (viewBody $ snd responses, nextState)
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
-  fmap (Arrow.first (fmap (\t -> (rid, mkMsg t)))) $ bot s (viewBody i)
+  fmap (\(i', s') -> ((rid, mkMsg i'), s')) $ bot s (viewBody i)
 
 viewBody :: Event -> T.Text
 viewBody = view (_EventRoomMessage . _RoomMessageText . _mtBody)
@@ -379,19 +369,33 @@ mkMsg msg =
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.
-type TextBot m s = Bot m s T.Text [T.Text]
+type TextBot m s = Bot m s T.Text T.Text
 
 -- | A repl-style 'Server' for interacting with a 'Bot'.
-repl :: Server IO [T.Text] T.Text
+repl :: Server IO T.Text T.Text
 repl = Server $ do
   -- Read the user's input
-  putStr "<<< "
-  hFlush stdout
-  (T.pack -> input) <- getLine
+  liftIO $ do
+    putStr "<<< "
+    hFlush stdout
+  (T.pack -> input) <- liftIO getLine
 
-  pure $ (input, ) $ \outputs -> Server $ do
+  pure $ (input, ) $ \output -> Server $ do
     -- Print the bot's responses
-    traverse_ (putStrLn . T.unpack . (">>> " <>)) outputs
+    liftIO $ putStrLn $ T.unpack input
+    liftIO $ putStrLn $ T.unpack $ ">>> " <> output
 
     -- Do it again
     runServer repl
+
+-- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
+-- monadic action @m@.
+annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix (ListT m)
+annihilate (Server server) (Behavior botBehaviorbot) = Fix $ do
+  (i, nextServer  ) <- server
+  (o, botBehavior') <- botBehaviorbot i
+  let server' = nextServer o
+  pure $ annihilate server' botBehavior'
+
+loop :: Monad m => Fix m -> m x
+loop (Fix x) = x >>= loop
