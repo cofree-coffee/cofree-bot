@@ -5,6 +5,7 @@
 module CofreeBot.Utils.ListT where
 
 import Data.Bifunctor (Bifunctor(..))
+import Data.Foldable (foldr')
 import Control.Monad (ap)
 import Data.Functor ((<&>))
 
@@ -55,3 +56,6 @@ instance Monad m => Monad (ListT m)
   where
   return = ListT . return . (`ConsF` emptyListT)
   ma >>= amb = joinListT $ fmap amb ma
+
+toListT :: (Foldable t, Applicative m) => t a -> ListT m a
+toListT = foldr' consListT emptyListT

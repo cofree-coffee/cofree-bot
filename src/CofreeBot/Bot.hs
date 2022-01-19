@@ -124,12 +124,8 @@ infixr \/
 pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
 pureStatelessBot = Arrow.arr
 
-pureStatelessBot' :: Monad m => (i -> [o]) -> Bot m s i o
-pureStatelessBot' f = Bot $ \i s -> do
-  fromList $ flip BotAction s <$> f i
- where
-  fromList [] = emptyListT
-  fromList (x:xs) = consListT x (fromList xs)
+pureStatelessBot' :: Applicative m => (i -> [o]) -> Bot m s i o
+pureStatelessBot' f = Bot $ \i s -> (flip BotAction s) <$> toListT (f i)
 
 mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
