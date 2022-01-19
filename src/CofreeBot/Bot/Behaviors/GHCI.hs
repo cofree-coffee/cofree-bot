@@ -17,7 +17,7 @@ import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
 
-type GhciBot = Bot IO () T.Text [T.Text]
+type GhciBot = Bot IO () T.Text T.Text
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle = whileM (hReady handle) (hGetChar handle)
@@ -31,12 +31,12 @@ ghciBot' p =
       hFlush (getStdin p)
       void $ threadDelay 5e5
       hGetOutput (getStdout p)
-    (pure $ [T.pack o])
+    pure $ T.pack o
 
 ghciBot :: Process Handle Handle () -> GhciBot
 ghciBot p =
   dimap (distinguish (/= "ghci: :q")) indistinct
-    $  pureStatelessBot (const $ ["I'm Sorry Dave"])
+    $  pureStatelessBot (const $ "I'm Sorry Dave")
     \/ ghciBot' p
 
 ghciConfig :: ProcessConfig Handle Handle ()

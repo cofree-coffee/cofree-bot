@@ -3,6 +3,7 @@ module CofreeBot.Utils where
 import           Control.Applicative
 import           Control.Arrow                  ( (&&&) )
 import           Data.Kind
+import Data.These (These)
 
 -------------------------------------------------------------------------------
 -- Tensors
@@ -35,9 +36,17 @@ infixr \/
 -- Wedge product
 -------------------------------------------------------------------------------
 
-type a \?/ b = Maybe (Either a b)
+type a \*/ b = Maybe (Either a b)
 
-infixr \?/
+infixr \*/
+
+-------------------------------------------------------------------------------
+-- These
+-------------------------------------------------------------------------------
+
+type a /+\ b = These a b
+
+infixr /+\
 
 -------------------------------------------------------------------------------
 -- Monoidal functor combinators
@@ -79,5 +88,5 @@ distinguish f x | f x       = Right x
                 | otherwise = Left x
 
 class PointedChoice p where
-  pleft :: p a b -> p (x \?/ a) (x \?/ b)
-  pright :: p a b -> p (a \?/ x) (b \?/ x)
+  pleft :: p a b -> p (x \*/ a) (x \*/ b)
+  pright :: p a b -> p (a \*/ x) (b \*/ x)

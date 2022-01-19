@@ -2,6 +2,7 @@ module CofreeBot.Bot.Behaviors.Jitsi where
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Jitsi.Dictionary
+import           CofreeBot.Utils                ( indistinct )
 import           Data.Profunctor
 import qualified Data.Text                     as T
 import qualified Data.Vector                   as V
@@ -27,6 +28,6 @@ jitsiBot =
       (\i ->
         if (i == "🍐" || i == "pair" || i == "pair") then Right () else Left ()
       )
-      (either id pure)
+      indistinct
     $  emptyBot
     \/ jitsiBot'

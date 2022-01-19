@@ -1,10 +1,13 @@
 module CofreeBot.Bot.Behaviors.Updog where
 
 import           CofreeBot.Bot
-import           Control.Applicative (liftA2, empty)
+import           CofreeBot.Utils.ListT          ( toListT )
+import           Control.Applicative            ( empty
+                                                , liftA2
+                                                )
 import           Data.String
-import           Data.Text (Text)
-import qualified Data.Text as T
+import           Data.Text                      ( Text )
+import qualified Data.Text                     as T
 
 newtype Matcher = Matcher
   { runMatcher :: Text -> Bool
@@ -24,24 +27,25 @@ Matcher p ||| Matcher f = Matcher $ liftA2 (||) p f
 
 data Match = Match
   { mMatch :: Matcher
-  , mResp :: Text
+  , mResp  :: Text
   }
 
 runMatches :: [Match] -> Text -> [Text]
-runMatches ms = flip foldMap ms $ \m t ->
-  case runMatcher (mMatch m) t of
-    False -> empty
-    True -> [ mResp m, "HAH GOTTEM" ]
+runMatches ms = flip foldMap ms $ \m t -> case runMatcher (mMatch m) t of
+  False -> empty
+  True  -> [mResp m, "HAH GOTTEM"]
 
 what :: Matcher
 what = "what" ||| "What" ||| "WHAT"
 
-updogSimpleBot :: Applicative m => Bot m s Text [Text]
-updogSimpleBot = pureStatelessBot $ runMatches
-  [ Match (what <> "updog") "nothin much whats up with you dog"
-  , Match (what <> "snakesay") "Hissss, hisssss"
-  , Match (what <> "OPP") "yo, you know me!"
-  ]
+updogSimpleBot :: Applicative m => Bot m s Text Text
+updogSimpleBot = Bot $ \s i ->
+  let matches =
+        [ Match (what <> "updog")    "nothin much whats up with you dog"
+        , Match (what <> "snakesay") "Hissss, hisssss"
+        , Match (what <> "OPP")      "yo, you know me!"
+        ]
+  in  fmap (, s) $ toListT $ runMatches matches i
 
 updogMatrixBot :: Applicative m => MatrixBot m ()
 updogMatrixBot = liftSimpleBot updogSimpleBot

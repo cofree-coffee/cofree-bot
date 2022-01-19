@@ -45,6 +45,7 @@ common common-libraries
     , network-uri
     , profunctors
     , text
+    , these
     , typed-process
 
 executable cofree-bot

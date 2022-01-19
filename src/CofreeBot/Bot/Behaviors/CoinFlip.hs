@@ -1,6 +1,7 @@
 module CofreeBot.Bot.Behaviors.CoinFlip where
 
 import           CofreeBot.Bot
+import           CofreeBot.Utils.ListT          ( emptyListT )
 import           Control.Monad.Reader
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )
@@ -16,16 +17,16 @@ simplifyCoinFlipBot :: forall s . Bot IO s () Bool -> TextBot IO s
 simplifyCoinFlipBot b = do
   t <- ask
   case to t of
-    Left  _ -> pure []
-    Right _ -> dimap (const ()) from $ b
+    Left  _err -> Bot $ pure $ const emptyListT
+    Right _    -> dimap (const ()) from $ b
  where
   to :: T.Text -> Either T.Text ()
   to = fmap (bimap T.pack id) $ parseOnly parseCoinFlipCommand
 
-  from :: Bool -> [T.Text]
+  from :: Bool -> T.Text
   from = \case
-    True  -> pure "Coin Flip Result: True"
-    False -> pure "Coin Flip Result: False"
+    True  -> "Coin Flip Result: True"
+    False -> "Coin Flip Result: False"
 
 parseCoinFlipCommand :: Parser ()
 parseCoinFlipCommand = "flip a coin" *> pure ()
