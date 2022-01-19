@@ -2,6 +2,7 @@ module CofreeBot.Bot.Behaviors.Jitsi where
 
 import CofreeBot.Bot
 import CofreeBot.Bot.Behaviors.Jitsi.Dictionary
+import CofreeBot.Utils.ListT
 import qualified Data.Text as T
 import Data.Profunctor
 import System.Random
@@ -13,15 +14,15 @@ pickRandomElement vs = do
   pure $ vs V.! i
 
 jitsiBot' :: Bot IO () () T.Text
-jitsiBot' = Bot $ \_ s -> do
+jitsiBot' = Bot $ \_ s -> ListT $ do
   adjective <- pickRandomElement adjectives
   noun <- pickRandomElement pluralNouns
   verb <- pickRandomElement verbs
   adverb <- pickRandomElement adverbs
 
   let url = "https://meet.jit.si/" <> adjective <> noun <> verb <> adverb
-  pure $ BotAction url s
+  pure $ ConsF (BotAction url s) emptyListT
 
 jitsiBot :: TextBot IO ()
 jitsiBot =
-  dimap (\i -> if (i == "🍐" || i == "pair" || i == "pair") then Right () else Left ()) (either id pure) $ emptyBot \/ jitsiBot'
+  dimap (\i -> if (i == "🍐" || i == "pair") then Right () else Left ()) (either id id) $ emptyBot \/ jitsiBot'
