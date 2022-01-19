@@ -1,6 +1,7 @@
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
+import           CofreeBot.Utils.ListT
 import qualified Control.Arrow                 as Arrow
 import qualified Control.Category              as Cat
 import           Control.Exception              ( catch
@@ -44,7 +45,7 @@ data BotAction s o = BotAction
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
 type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+newtype Bot m s i o = Bot { runBot :: i -> s -> ListT m (BotAction s o) }
 
 --------------------------------------------------------------------------------
 -- Instances
@@ -77,7 +78,7 @@ instance Functor f => Profunctor (Bot f s) where
 instance Functor f => Strong (Bot f s) where
   first' (Bot bot) = Bot $ \(a, c) -> fmap (fmap (, c)) . bot a
 
-instance Applicative f => Choice (Bot f s) where
+instance Monad f => Choice (Bot f s) where
   left' (Bot bot) = Bot $ either ((fmap . fmap . fmap) Left . bot)
                                  (\c s -> pure $ BotAction (Right c) s)
 
@@ -90,7 +91,7 @@ invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
 
 nudge
-  :: Applicative m
+  :: Monad m
   => Bot m s i o \/ Bot m s i' o'
   -> Bot m s (i \/ i') (o \?/ o')
 nudge = either
@@ -101,10 +102,10 @@ nudge = either
                             ((fmap . fmap . fmap . fmap) (Just . Right) $ b)
   )
 
-nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
+nudgeLeft :: Monad m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
 nudgeLeft = nudge . Left
 
-nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
+nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
 infixr /\
@@ -120,22 +121,22 @@ infixr \/
 (\/) (Bot b1) (Bot b2) = Bot
   $ either ((fmap . fmap . fmap) Left . b1) ((fmap . fmap . fmap) Right . b2)
 
-pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
-pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
+pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
+pureStatelessBot = Arrow.arr
 
 mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) =
-  Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
+  Bot $ \i s -> maybe (consListT (BotAction mempty s) emptyListT) (flip bot s) (f i)
 
-emptyBot :: (Monoid o, Applicative m) => Bot m s i o
+emptyBot :: (Monoid o, Monad m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
 
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
 
-type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
+type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, Event)
 
 readFileMaybe :: String -> IO (Maybe T.Text)
 readFileMaybe path = (fmap Just $ T.readFile path)
@@ -171,23 +172,29 @@ runMatrixBot session cache bot s = do
  where
   go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
   go ref input = do
-    state          <- liftIO $ readIORef ref
-    BotAction {..} <- liftIO $ runBot bot input state
+    state     <- liftIO $ readIORef ref
+    gen       <- newStdGen
+    nextState <- liftIO $ exhaust gen state (runBot bot input state)
     liftIO $ writeIORef ref nextState
-    gen <- newStdGen
-    let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
-                                 responses
-                                 txnIds
+  exhaust :: MonadIO m => StdGen -> s -> ListT IO (BotAction s (RoomID, Event)) -> m s
+  exhaust gen state lt = do
+    lf <- liftIO $ runListT lt
+    let (gen', txnId) = TxnID . T.pack . show <$> random @Int gen
+    case lf of
+      NilF -> pure state
+      ConsF (BotAction {..}) lt' -> do
+        _eventId <- liftIO $ (uncurry $ sendMessage session) responses txnId
+        exhaust (mkStdGen gen') nextState lt'
+
 
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
   BotAction {..} <- bot (RoomID mempty, mkMsg i) s
-  pure $ BotAction (fmap (viewBody . snd) $ responses) nextState
+  pure $ BotAction (viewBody $ snd $ responses) nextState
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (viewBody i) s
+  $ \(rid, i) s -> fmap (fmap ((rid, ) . mkMsg)) $ bot (viewBody i) s
 
 viewBody :: Event -> T.Text
 viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
@@ -204,7 +211,7 @@ mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.
-type TextBot m s = Bot m s T.Text [T.Text]
+type TextBot m s = Bot m s T.Text T.Text
 
 -- | An evaluator for running 'TextBots' in 'IO'
 runTextBot :: forall s . TextBot IO s -> s -> IO ()
@@ -214,7 +221,14 @@ runTextBot bot = go
   go state = do
     putStr "<<< "
     hFlush stdout
-    input          <- getLine
-    BotAction {..} <- runBot bot (T.pack input) state
-    traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
+    input     <- getLine
+    nextState <- exhaust state (runBot bot (T.pack input) state)
     go nextState
+  exhaust :: s -> ListT IO (BotAction s T.Text) -> IO s
+  exhaust s lt = do
+    lf <- runListT lt
+    case lf of
+      NilF -> pure s
+      ConsF (BotAction {..}) lt' -> do
+        putStrLn $ T.unpack (">>> " <> responses)
+        exhaust nextState lt'
