@@ -129,4 +129,3 @@ interleaveListT (ListT m) (ListT n) = ListT $ do
     (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
     (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
     (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (interleaveListT xs ys)
-    
