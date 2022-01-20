@@ -139,6 +139,28 @@ mapMaybeBot f (Bot bot) =
 emptyBot :: (Monoid o, Monad m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
 
+-- NOTE: i -> m (i -> m (i -> ..., o), o)
+newtype Thread m i o = Thread
+    { runThread :: i -> ListT m (Thread m i o, o) }
+
+thread :: Functor m => Bot m s i o -> s -> Thread m i o
+thread (Bot b) s = Thread $ \i ->
+  fmap (\ (BotAction o s') ->
+          (thread (Bot b) s', o))
+       (b i s)
+
+knotL :: Applicative m => Thread m i o -> Thread m (Either i i') (Either o o')
+knotL (Thread l) = Thread $
+    either (fmap (fmap (bimap knotL Left)) l) (const emptyListT)
+
+knotR :: Applicative m => Thread m i o -> Thread m (Either i' i) (Either o' o)
+knotR (Thread r) = Thread $
+    either (const emptyListT) (fmap (fmap (bimap knotR Right)) r)
+
+tie :: (Applicative m) => Thread m i o -> Thread m i' o' -> Thread m (i \/ i') (o \/ o')
+tie (Thread l) (Thread r) = Thread $
+    either (fmap (bimap knotL Left) . l) (fmap (bimap knotR Right) . r)
+
 --------------------------------------------------------------------------------
 -- Matrix Bot
 --------------------------------------------------------------------------------
