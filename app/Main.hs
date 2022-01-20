@@ -17,6 +17,7 @@ import           System.Process.Typed
 import           Control.Monad.Except (ExceptT, runExceptT)
 import           Control.Monad.IO.Class (liftIO)
 import CofreeBot.Utils.ListT (fromListT)
+import Data.Foldable
 
 main :: IO ()
 main = do
@@ -35,7 +36,7 @@ main = do
 bot process =
   let calcBot =
         liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+          $ simplifySessionBot printCalcOutput programP
           $ sessionize mempty
           $ calculatorBot
       helloBot     = helloMatrixBot

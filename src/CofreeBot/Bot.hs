@@ -4,6 +4,7 @@ module CofreeBot.Bot where
 
 import           CofreeBot.Utils
 import           CofreeBot.Utils.ListT
+import           Control.Applicative
 import qualified Control.Arrow                 as Arrow
 import           Control.Exception              ( catch
                                                 , throwIO
@@ -26,14 +27,13 @@ import           Data.Profunctor
 import           Data.Profunctor.Traversing
 import qualified Data.Text                     as T
 import qualified Data.Text.IO                  as T
+import           Data.These
 import           Network.Matrix.Client
 import           Network.Matrix.Client.Lens
 import           System.Directory               ( createDirectoryIfMissing )
 import           System.IO
 import           System.IO.Error                ( isDoesNotExistError )
 import           System.Random
-import Data.These
-import Control.Applicative
 
 
 --------------------------------------------------------------------------------
@@ -209,12 +209,13 @@ infixr /\
   pure $ (,) (nextState, nextState') (responses, responses')
 
 -- | Runs two bots on the same input and then interleaves their output.
-(/+\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
+(/+\)
+  :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
 (/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
   interleaveListT (b1 s i) (b2 s' i) <&> \case
-     This (o, s) -> (This o, (s, s'))
-     That (o', s') -> (That o', (s, s'))
-     These (o, s) (o', s') -> (These o o', (s, s'))
+    This (o , s )         -> (This o, (s, s'))
+    That (o', s')         -> (That o', (s, s'))
+    These (o, s) (o', s') -> (These o o', (s, s'))
 
 -- | Runs two bots on the same input and then interleaves their
 -- output, sequencing if they both return an output for the same
@@ -222,9 +223,9 @@ infixr /\
 (/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
 (/.\) (Bot b1) (Bot b2) = Bot $ \(s1, s2) i -> do
   interleaveListT (b1 s1 i) (b2 s2 i) >>= \case
-     This (o, s1') -> pure (o, (s1', s2))
-     That (o', s2') -> pure (o', (s1, s2'))
-     These (o, s1') (o', s2') -> toListT [(o, (s1', s2)), (o', (s1', s2'))] 
+    This (o , s1')           -> pure (o, (s1', s2))
+    That (o', s2')           -> pure (o', (s1, s2'))
+    These (o, s1') (o', s2') -> toListT [(o, (s1', s2)), (o', (s1', s2'))]
 
 -- | Sum the inputs and outputs of two bots who operate on the same
 -- state @s@.
@@ -233,7 +234,8 @@ infixr /\
 -- one or the other bot will be executed depending on the input
 -- provided.
 infixr \/
-(\/) :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+(\/)
+  :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
 (\/) (Bot b1) (Bot b2) = Bot $ \s ->
   either (fmap (Arrow.first Left) . b1 s) (fmap (Arrow.first Right) . b2 s)
 
