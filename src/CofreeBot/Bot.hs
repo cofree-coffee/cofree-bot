@@ -12,6 +12,7 @@ import           Control.Lens            hiding ( from
                                                 )
 import           Control.Monad
 import           Control.Monad.Except
+import           Data.Bifunctor
 import           Data.Foldable
 import           Data.IORef
 import           Data.Kind
@@ -118,9 +119,11 @@ nudgeRight = nudge . Right
 
 infixr \/
 (\/)
-  :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
-(\/) (Bot b1) (Bot b2) = Bot
-  $ either ((fmap . fmap . fmap) Left . b1) ((fmap . fmap . fmap) Right . b2)
+  :: Functor m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i \/ i') (o \/ o')
+(\/) (Bot b1) (Bot b2) = Bot $ \i (s, s') ->
+  either (fmap (first (, s')) . ($ s) . (fmap . fmap . fmap) Left . b1)
+         (fmap (first (s  ,)) . ($ s') . (fmap . fmap . fmap) Right . b2)
+         i
 
 pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
 pureStatelessBot = Arrow.arr
