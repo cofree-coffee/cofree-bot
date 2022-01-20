@@ -7,9 +7,9 @@ module CofreeBot.Bot.Behaviors.GHCI
 
 import           CofreeBot.Bot
 import           CofreeBot.Utils
+import           CofreeBot.Utils.ListT
 import           Control.Monad
 import           Control.Monad.Loops            ( whileM )
-import           Control.Monad.Reader
 import           Data.Attoparsec.Text          as A
 import           Data.Profunctor
 import qualified Data.Text                     as T
@@ -24,14 +24,14 @@ hGetOutput handle = whileM (hReady handle) (hGetChar handle)
 
 ghciBot' :: Process Handle Handle () -> GhciBot
 ghciBot' p =
-  mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser) $ do
-    i <- ask
-    o <- liftEffect $ do
-      hPutStrLn (getStdin p) $ T.unpack i
-      hFlush (getStdin p)
-      void $ threadDelay 5e5
-      hGetOutput (getStdout p)
-    pure $ T.pack o
+  mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser)
+    $ Bot
+    $ \s i -> ListT $ do
+        hPutStrLn (getStdin p) $ T.unpack i
+        hFlush (getStdin p)
+        void $ threadDelay 5e5
+        o <- hGetOutput (getStdout p)
+        pure (ConsF ((T.pack o), s) emptyListT)
 
 ghciBot :: Process Handle Handle () -> GhciBot
 ghciBot p =
