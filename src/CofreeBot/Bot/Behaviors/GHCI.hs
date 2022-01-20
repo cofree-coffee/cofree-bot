@@ -7,6 +7,7 @@ module CofreeBot.Bot.Behaviors.GHCI
 
 import           CofreeBot.Bot
 import           CofreeBot.Utils
+import           CofreeBot.Utils.ListT
 import           Control.Monad
 import           Control.Monad.Loops            ( whileM )
 import           Data.Attoparsec.Text          as A
@@ -16,7 +17,7 @@ import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
 
-type GhciBot = Bot IO () T.Text [T.Text]
+type GhciBot = Bot IO () T.Text T.Text
 
 hGetOutput :: Handle -> IO String
 hGetOutput handle = whileM (hReady handle) (hGetChar handle)
@@ -25,17 +26,17 @@ ghciBot' :: Process Handle Handle () -> GhciBot
 ghciBot' p =
   mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser)
     $ Bot
-    $ \i s -> do
+    $ \i s -> ListT $ do
         hPutStrLn (getStdin p) $ T.unpack i
         hFlush (getStdin p)
         void $ threadDelay 5e5
         o <- hGetOutput (getStdout p)
-        pure $ BotAction (pure $ T.pack o) s
+        pure (ConsF (BotAction (T.pack o) s) emptyListT)
 
 ghciBot :: Process Handle Handle () -> GhciBot
 ghciBot p =
   dimap (distinguish (/= "ghci: :q")) indistinct
-    $  pureStatelessBot (const $ ["I'm Sorry Dave"])
+    $  pureStatelessBot (const $ "I'm Sorry Dave")
     \/ ghciBot' p
 
 ghciConfig :: ProcessConfig Handle Handle ()
