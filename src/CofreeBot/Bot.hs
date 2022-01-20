@@ -108,12 +108,13 @@ nudgeLeft = nudge . Left
 nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
-infixr /\
-(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
-(/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
-  BotAction {..} <- b1 i s
-  BotAction { nextState = nextState', responses = responses' } <- b2 i s'
-  pure $ BotAction (responses, responses') (nextState, nextState')
+-- TODO: Data.These?
+-- infixr /\
+-- (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
+-- (/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
+--   BotAction {..} <- b1 i s
+--   BotAction { nextState = nextState', responses = responses' } <- b2 i s'
+--   pure $ BotAction (responses, responses') (nextState, nextState')
 
 infixr \/
 (\/)
