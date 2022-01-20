@@ -4,12 +4,10 @@ module CofreeBot.Bot.Behaviors.Calculator.Language where
 
 import           CofreeBot.Utils
 import           Control.Applicative
-import qualified Control.Arrow                 as Arrow
 import           Control.Monad.Error.Class
 import           Control.Monad.Except
 import           Control.Monad.RWS.Class
 import           Control.Monad.State
-import           Control.Monad.Writer
 import           Data.Attoparsec.Text          as A
 import           Data.Bifunctor
 import           Data.Char                      ( isAlpha
@@ -17,14 +15,12 @@ import           Data.Char                      ( isAlpha
                                                 )
 import           Data.Foldable
 import           Data.Functor
-import           Data.Functor.Identity
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Map.Strict               as Map
 import qualified Data.Text                     as T
 
 --------------------------------------------------------------------------------
 -- Utils
---------------------------------------------------------------------------------
 
 infixOp :: Parser a -> Parser b -> Parser T.Text -> Parser (a, b)
 infixOp p1 p2 pop =
@@ -39,7 +35,6 @@ infixOp p1 p2 pop =
 
 --------------------------------------------------------------------------------
 -- Parsing types
---------------------------------------------------------------------------------
 
 type VarName = T.Text
 
@@ -59,7 +54,6 @@ type Program = NE.NonEmpty Statement
 
 --------------------------------------------------------------------------------
 -- Printer
---------------------------------------------------------------------------------
 
 instance Show Expr where
   showsPrec p = \case
@@ -73,7 +67,6 @@ instance Show Expr where
 
 --------------------------------------------------------------------------------
 -- Parser
---------------------------------------------------------------------------------
 
 varNameP :: Parser VarName
 varNameP =
@@ -122,65 +115,37 @@ parseProgram :: T.Text -> Either ParseError Program
 parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt
 
 --------------------------------------------------------------------------------
--- Evaluation types
---------------------------------------------------------------------------------
+-- Evaluator
+
+data CalcResp = Log Expr Int | Ack
 
 data CalcError = LookupError T.Text
   deriving Show
 
 type CalcState = Map.Map T.Text Int
 
-data CalcResp = Log Expr Int
-
---------------------------------------------------------------------------------
--- Evaluator
---------------------------------------------------------------------------------
-
-newtype CalculatorM m a =
-  CalculatorM {runCalculatorM :: CalcState -> m (Either CalcError (a,  [CalcResp]), CalcState) }
-  deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadState CalcState
-    , MonadError CalcError
-    , MonadWriter [CalcResp]
-    )
-  via
-    Transformers '[WriterT [CalcResp] , ExceptT CalcError , StateT CalcState] m
-
-execCalc
-  :: CalcState
-  -> (forall m . Monad m => CalculatorM m a)
-  -> (Either CalcError [CalcResp], CalcState)
-execCalc calcState calc =
-  Arrow.first (fmap snd)
-    . runIdentity                       -- (Either CalcError (a, [CalcResp]), CalcState)
-    . runCalculatorM calc
-    $ calcState
-
 -- | Evaluate an expression in our arithmetic language
-eval :: (Monad m) => Expr -> CalculatorM m Int
+eval :: Expr -> ExceptT CalcError (State CalcState) Int
 eval = \case
-  Var bndr -> do
-    s <- get
-    maybe (throwError $ LookupError bndr) pure $ Map.lookup bndr s
-  Val i    -> pure i
+  Var var ->
+    maybe (throwError $ LookupError var) pure =<< gets (Map.lookup var)
+  Val n    -> pure n
   Add  x y -> liftA2 (+) (eval x) (eval y)
   Mult x y -> liftA2 (*) (eval x) (eval y)
-  Neg x    -> fmap negate $ eval x
+  Neg x    -> fmap negate (eval x)
 
 -- | Interpret a language statement into response.
-interpretStatement :: Monad m => Statement -> CalculatorM m ()
+interpretStatement :: Statement -> ExceptT CalcError (State CalcState) CalcResp
 interpretStatement = \case
   Let bndr expr -> do
     val <- eval expr
     modify (Map.insert bndr val)
+    pure Ack
   StdOut expr -> do
     val <- eval expr
-    tell [Log expr val]
+    pure $ Log expr val
 
-interpretProgram
-  :: Program -> CalcState -> (Either CalcError [CalcResp], CalcState)
-interpretProgram program calcState =
-  execCalc calcState $ traverse_ interpretStatement program
+-- | Execute the calculator with a given statement and state
+execCalculator :: Statement -> CalcState -> (CalcError \/ CalcResp, CalcState)
+execCalculator statement calcState =
+  flip runState calcState $ runExceptT $ interpretStatement statement

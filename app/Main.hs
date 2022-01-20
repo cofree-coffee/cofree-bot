@@ -4,15 +4,11 @@ module Main where
 
 import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
-import           CofreeBot.Utils.ListT          ( fromListT )
 import           Control.Monad
 import           Control.Monad.Except           ( ExceptT
                                                 , runExceptT
                                                 )
 import           Control.Monad.IO.Class         ( liftIO )
-import           Data.Profunctor
-import           Data.Profunctor.Traversing
-import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           Network.Matrix.Client
 import qualified Options.Applicative           as Opt
@@ -37,14 +33,14 @@ main = do
 bot process =
   let calcBot =
         liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+          $ simplifySessionBot printCalcOutput statementP
           $ sessionize mempty
           $ calculatorBot
       helloBot       = helloMatrixBot
       coinFlipBot'   = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'       = liftSimpleBot $ ghciBot process
       magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
-  in  calcBot
+  in calcBot
         /.\ coinFlipBot'
         /.\ helloBot
         /.\ ghciBot'
