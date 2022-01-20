@@ -6,7 +6,9 @@ module CofreeBot.Bot.Behaviors.Jitsi
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Jitsi.Dictionary
-import           CofreeBot.Utils                ( indistinct )
+import           CofreeBot.Utils                ( type (/\)
+                                                , indistinct
+                                                )
 import           Data.Profunctor
 import qualified Data.Text                     as T
 import qualified Data.Vector                   as V

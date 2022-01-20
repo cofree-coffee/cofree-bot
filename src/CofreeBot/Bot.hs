@@ -251,10 +251,9 @@ infixr /.\
 -- one or the other bot will be executed depending on the input
 -- provided.
 infixr \/
-(\/)
-  :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
-(\/) (Bot b1) (Bot b2) = Bot $ \s ->
-  either (fmap (Arrow.first Left) . b1 s) (fmap (Arrow.first Right) . b2 s)
+(\/) :: Monad m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+(\/) (Bot b1) (Bot b2) =
+  Bot $ \s -> either (fmap (first Left) . b1 s) (fmap (first Right) . b2 s)
 
 -- | Construct a 'Bot' which maps from @i@ to @o@ without using its
 -- state @s@ or monadic action @m@.
