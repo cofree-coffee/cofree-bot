@@ -37,11 +37,13 @@ bot process =
       helloBot     = helloMatrixBot
       coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'     = liftSimpleBot $ ghciBot process
-  in rmap (\(x :& y :& z :& q :& w :& p) -> x <> y <> z <> q <> w <> p)
+      magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
+  in rmap (\(x :& y :& z :& q :& w :& p :& r) -> x <> y <> z <> q <> w <> p <> r)
           $  calcBot
           /\ helloBot
           /\ coinFlipBot'
           /\ ghciBot'
+          /\ magic8BallBot'
           /\ updogMatrixBot
           /\ liftSimpleBot jitsiBot
 
