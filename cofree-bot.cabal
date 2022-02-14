@@ -58,6 +58,7 @@ executable cofree-bot
     , cofree-bot
     , optparse-applicative
     , xdg-basedir
+    , mtl
 
   other-modules:  OptionsParser
 

@@ -1,11 +1,13 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use <$>" #-}
 -- | Context Transformations for bots
 module CofreeBot.Bot.Context where
 
 import           CofreeBot.Bot
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import           Data.Bifunctor                 ( bimap )
+import           Data.Bifunctor                 ( bimap, Bifunctor (first) )
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T
@@ -74,7 +76,7 @@ parseSessionInfo :: Parser i -> Parser (SessionInput i)
 parseSessionInfo p = do
   keyword <- New <$ "new" <|> Use <$ "use" <|> End <$ "end"
   case keyword of
-    New -> pure $ StartSession
+    New -> pure StartSession
     Use -> do
       _ <- space
       n <- decimal <* ": "
@@ -99,7 +101,7 @@ simplifySessionBot tshow p (Bot bot) = Bot $ \i s -> do
     Right si -> fmap (fmap from) $ bot si s
  where
   to :: T.Text -> Either T.Text (SessionInput i)
-  to = fmap (bimap T.pack id) $ parseOnly $ (parseSessionInfo p)
+  to = fmap (first T.pack) $ parseOnly $ parseSessionInfo p
 
   from :: SessionOutput o -> [T.Text]
   from = \case
