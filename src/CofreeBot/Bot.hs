@@ -1,3 +1,7 @@
+{-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use <$>" #-}
+{-# LANGUAGE RankNTypes #-}
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
@@ -6,13 +10,10 @@ import qualified Control.Category              as Cat
 import           Control.Exception              ( catch
                                                 , throwIO
                                                 )
-import           Control.Lens            hiding ( from
-                                                , to
-                                                )
+import           Control.Lens (ifolded, view, (^.), _Just)
 import           Control.Monad
 import           Control.Monad.Except
 import           Data.Foldable
-import           Data.IORef
 import           Data.Kind
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor
@@ -24,6 +25,10 @@ import           System.Directory               ( createDirectoryIfMissing )
 import           System.IO
 import           System.IO.Error                ( isDoesNotExistError )
 import           System.Random
+import Data.Bifunctor (Bifunctor(..))
+import Control.Monad.State (runStateT, StateT (StateT))
+import Data.Profunctor.Traversing
+import Data.Functor ((<&>))
 
 --------------------------------------------------------------------------------
 -- Kinds
@@ -35,6 +40,8 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 -- Types
 --------------------------------------------------------------------------------
 
+newtype Fix f = Fix { runFix :: f (Fix f) }
+
 data BotAction s o = BotAction
   { responses :: o
   , nextState :: s
@@ -45,6 +52,48 @@ data BotAction s o = BotAction
 -- output type 'o' and a state 's'
 type Bot :: KBot
 newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+
+newtype Behavior m i o = Behavior { runBehavior :: i -> m (BotAction (Behavior m i o) o) }
+
+instance Functor m => Functor (Behavior m i)
+  where
+  fmap f (Behavior b) = Behavior $ fmap (fmap $ bimap (fmap f) f) b
+
+instance Functor m => Profunctor (Behavior m)
+  where
+  dimap f g (Behavior b) = Behavior $ dimap f (fmap $ bimap (dimap f g) g) b
+
+instance Applicative m => Choice (Behavior m)
+  where
+  left' (Behavior b) = Behavior $ either (fmap (bimap left' Left) . b) (pure . flip BotAction (left' (Behavior b)) . Right)
+
+instance Functor m => Strong (Behavior m)
+  where
+  first' (Behavior b) = Behavior $ \(a, c) -> fmap (bimap first' (, c)) $ b a
+
+instance Monad m => Traversing (Behavior m)
+  where
+  -- TODO: write wander instead for efficiency
+
+  traverse' b = Behavior $ \is ->
+    fmap (uncurry BotAction . fmap traverse')
+    $ flip runStateT b
+    $ traverse (\i -> StateT $ \(Behavior b') -> fmap (\case { BotAction {..} -> (responses, nextState) }) $ b' i) is
+
+fixBot :: Functor m => Bot m s i o -> s -> Behavior m i o
+fixBot (Bot b) = go
+  where
+  go s = Behavior $ \i -> first go <$> b i s
+
+type Env :: KBot
+newtype Env m s o i = Env { runEnv :: s -> (i, o -> m s) }
+
+newtype Server m o i = Server { runServer :: (i, o -> m (Server m o i)) }
+
+fixEnv :: Functor m => Env m s o i -> s -> Server m o i
+fixEnv (Env b) = go
+  where
+  go s = Server $ fmap (fmap (fmap go)) $ b s
 
 --------------------------------------------------------------------------------
 -- Instances
@@ -68,7 +117,7 @@ instance Monad m => Cat.Category (Bot m s) where
     f b s'
 
 instance Monad m => Arrow.Arrow (Bot m s) where
-  arr f = rmap f (Cat.id)
+  arr f = rmap f Cat.id
   first = first'
 
 instance Functor f => Profunctor (Bot f s) where
@@ -87,18 +136,18 @@ instance Applicative f => Choice (Bot f s) where
 
 -- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
-invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
+invmapBot f g (Bot b) = Bot $ \i s -> b i (g s) <&> first f
 
 nudge
   :: Applicative m
   => Bot m s i o \/ Bot m s i' o'
   -> Bot m s (i \/ i') (o \?/ o')
 nudge = either
-  (\(Bot b) -> Bot $ either ((fmap . fmap . fmap . fmap) (Just . Left) $ b)
+  (\(Bot b) -> Bot $ either ((fmap . fmap . fmap . fmap) (Just . Left) b)
                             (const $ \s -> pure $ BotAction Nothing s)
   )
   (\(Bot b) -> Bot $ either (const $ \s -> pure $ BotAction Nothing s)
-                            ((fmap . fmap . fmap . fmap) (Just . Right) $ b)
+                            ((fmap . fmap . fmap . fmap) (Just . Right) b)
   )
 
 nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
@@ -126,10 +175,13 @@ pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
 mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) =
-  Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
+  Bot $ \i s -> maybe (pure (BotAction mempty s)) (`bot` s) $ f i
 
 emptyBot :: (Monoid o, Applicative m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
+
+hoistBot :: (forall x. m x -> n x) -> Bot m s i o -> Bot n s i o
+hoistBot f (Bot b) = Bot $ fmap (fmap f) b
 
 --------------------------------------------------------------------------------
 -- Matrix Bot
@@ -137,20 +189,32 @@ emptyBot = pureStatelessBot $ const mempty
 
 type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
 
+liftMatrixIO :: (MonadIO m, MonadError MatrixError m) => MatrixIO x -> m x
+liftMatrixIO m = liftEither =<< liftIO m
+
 readFileMaybe :: String -> IO (Maybe T.Text)
-readFileMaybe path = (fmap Just $ T.readFile path)
+readFileMaybe path = fmap Just (T.readFile path)
   `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
 
-runMatrixBot
-  :: forall s . ClientSession -> String -> MatrixBot IO s -> s -> IO ()
-runMatrixBot session cache bot s = do
-  ref <- newIORef s
-  createDirectoryIfMissing True cache
-  since <- readFileMaybe $ cache <> "/since_file"
-  void $ runExceptT $ do
-    userId   <- ExceptT $ getTokenOwner session
-    filterId <- ExceptT $ createFilter session userId messageFilter
-    syncPoll session (Just filterId) since (Just Online) $ \syncResult -> do
+matrix :: (MonadError MatrixError m, MonadIO m) => ClientSession -> FilePath -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
+matrix session cache = do
+  -- Setup cache
+  liftIO $ createDirectoryIfMissing True cache
+  since <- liftIO $ readFileMaybe $ cache <> "/since_file"
+
+  -- Log in
+  userId   <- liftMatrixIO $ getTokenOwner session
+  filterId <- liftMatrixIO $ createFilter session userId messageFilter
+
+  -- Start looping
+  go filterId since
+
+  where
+    go filterId since = do
+      -- Get conversation events
+      syncResult <- liftMatrixIO $ sync session (Just filterId) since (Just Online) (Just 1000)
+
+      -- Unpack sync result
       let newSince :: T.Text
           newSince = syncResult ^. _srNextBatch
 
@@ -165,32 +229,29 @@ runMatrixBot session cache bot s = do
             (\rid es -> fmap ((RoomID rid, ) . view _reContent) es)
             roomEvents
 
-      liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-      liftIO $ print roomEvents
-      traverse_ (go ref) events
- where
-  go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
-  go ref input = do
-    state          <- liftIO $ readIORef ref
-    BotAction {..} <- liftIO $ runBot bot input state
-    liftIO $ writeIORef ref nextState
-    gen <- newStdGen
-    let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
-                                 responses
-                                 txnIds
+      return $ Server $ (events,) $ \outputs -> do
+        -- Send the bot's responses
+        gen <- newStdGen
+        let txnIds = TxnID . T.pack . show <$> randoms @Int gen
+        liftIO $ zipWithM_ (uncurry $ sendMessage session) outputs txnIds
+
+        -- Update since file
+        liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
+
+        -- Do it again
+        go filterId (Just newSince)
 
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
   BotAction {..} <- bot (RoomID mempty, mkMsg i) s
-  pure $ BotAction (fmap (viewBody . snd) $ responses) nextState
+  pure $ BotAction (fmap (viewBody . snd) responses) nextState
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
 liftSimpleBot (Bot bot) = Bot
   $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (viewBody i) s
 
 viewBody :: Event -> T.Text
-viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+viewBody = view (_EventRoomMessage . _RoomMessageText . _mtBody)
 
 mkMsg :: T.Text -> Event
 mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
@@ -206,15 +267,25 @@ mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
 -- 'SimpleBot' is useful for locally debugging another bot.
 type TextBot m s = Bot m s T.Text [T.Text]
 
--- | An evaluator for running 'TextBots' in 'IO'
-runTextBot :: forall s . TextBot IO s -> s -> IO ()
-runTextBot bot = go
- where
-  go :: s -> IO ()
-  go state = do
-    putStr "<<< "
-    hFlush stdout
-    input          <- getLine
-    BotAction {..} <- runBot bot (T.pack input) state
-    traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
-    go nextState
+repl :: IO (Server IO [T.Text] T.Text)
+repl = do
+  -- Read the user's input
+  putStr "<<< "
+  hFlush stdout
+  (T.pack -> input) <- getLine
+
+  return $ Server $ (input,) $ \outputs -> do
+    -- Print the bot's responses
+    traverse_ (putStrLn . T.unpack . (">>> " <>)) outputs
+
+    -- Do it again
+    repl
+
+annihilate :: Monad m => Behavior m i o -> Server m o i -> Fix m
+annihilate (Behavior a) (Server (i, b)) = Fix $ do
+  BotAction { nextState = a', responses = o } <- a i
+  b' <- b o
+  return $ annihilate a' b'
+
+loop :: Monad m => Fix m -> m x
+loop (Fix x) = x >>= loop

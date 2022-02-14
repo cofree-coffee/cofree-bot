@@ -13,6 +13,9 @@ import qualified Options.Applicative           as Opt
 import           OptionsParser
 import           System.Environment.XDG.BaseDir ( getUserCacheDir )
 import           System.Process.Typed
+import           Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad.IO.Class (liftIO)
+import Data.Profunctor.Traversing
 
 main :: IO ()
 main = do
@@ -51,10 +54,15 @@ cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runTextBot (simplifyMatrixBot $ bot process) mempty
+  repl' <- repl
+  loop $ annihilate (flip fixBot mempty $ simplifyMatrixBot $ bot process) repl'
+
+absorbError :: Show e => ExceptT e IO a -> IO a
+absorbError = runExceptT >=> either (fail . show) pure
 
 matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runMatrixBot session xdgCache (bot process) mempty
+  matrix' <- absorbError $ matrix session xdgCache
+  absorbError $ loop $ annihilate (fmap join $ traverse' $ flip fixBot mempty $ hoistBot liftIO $ bot process) matrix'
