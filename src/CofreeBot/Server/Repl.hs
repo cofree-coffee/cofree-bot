@@ -2,11 +2,17 @@
 -- | Repl Server
 module CofreeBot.Server.Repl where
 
-import           CofreeBot.Bot (Bot (..), BotAction (..), Behavior (..), Fix (..))
+import           CofreeBot.Bot                  ( Behavior(..)
+                                                , Bot(..)
+                                                , BotAction(..)
+                                                , Fix(..)
+                                                )
 import           CofreeBot.Server.Type
-import           Data.Foldable (traverse_)
-import qualified Data.Text as T
-import           System.IO (stdout, hFlush)
+import           Data.Foldable                  ( traverse_ )
+import qualified Data.Text                     as T
+import           System.IO                      ( hFlush
+                                                , stdout
+                                                )
 
 -- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
 -- 'SimpleBot' is useful for locally debugging another bot.
@@ -19,7 +25,7 @@ repl = do
   hFlush stdout
   (T.pack -> input) <- getLine
 
-  return $ Server $ (input,) $ \outputs -> do
+  return $ Server $ (input, ) $ \outputs -> do
     -- Print the bot's responses
     traverse_ (putStrLn . T.unpack . (">>> " <>)) outputs
 

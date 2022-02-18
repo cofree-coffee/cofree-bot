@@ -6,9 +6,11 @@ module CofreeBot.Bot where
 import           CofreeBot.Utils
 import qualified Control.Arrow                 as Arrow
 import qualified Control.Category              as Cat
-import           Control.Monad.State (runStateT, StateT (StateT))
-import           Data.Bifunctor (Bifunctor(..))
-import           Data.Functor ((<&>))
+import           Control.Monad.State            ( StateT(StateT)
+                                                , runStateT
+                                                )
+import           Data.Bifunctor                 ( Bifunctor(..) )
+import           Data.Functor                   ( (<&>) )
 import           Data.Kind
 import           Data.Profunctor
 import           Data.Profunctor.Traversing
@@ -85,7 +87,9 @@ instance Functor m => Profunctor (Behavior m)
 
 instance Applicative m => Choice (Behavior m)
   where
-  left' (Behavior b) = Behavior $ either (fmap (bimap left' Left) . b) (pure . flip BotAction (left' (Behavior b)) . Right)
+  left' (Behavior b) = Behavior $ either
+    (fmap (bimap left' Left) . b)
+    (pure . flip BotAction (left' (Behavior b)) . Right)
 
 instance Functor m => Strong (Behavior m)
   where
@@ -96,9 +100,15 @@ instance Monad m => Traversing (Behavior m)
   -- TODO: write wander instead for efficiency
 
   traverse' b = Behavior $ \is ->
-    fmap (uncurry BotAction . fmap traverse')
-    $ flip runStateT b
-    $ traverse (\i -> StateT $ \(Behavior b') -> fmap (\case { BotAction {..} -> (responses, nextState) }) $ b' i) is
+    fmap (uncurry BotAction . fmap traverse') $ flip runStateT b $ traverse
+      (\i -> StateT $ \(Behavior b') ->
+        fmap
+            (\case
+              BotAction {..} -> (responses, nextState)
+            )
+          $ b' i
+      )
+      is
 
 --------------------------------------------------------------------------------
 -- Fix
@@ -159,10 +169,8 @@ mapMaybeBot f (Bot bot) =
 emptyBot :: (Monoid o, Applicative m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
 
-hoistBot :: (forall x. m x -> n x) -> Bot m s i o -> Bot n s i o
+hoistBot :: (forall x . m x -> n x) -> Bot m s i o -> Bot n s i o
 hoistBot f (Bot b) = Bot $ fmap (fmap f) b
 
 fixBot :: Functor m => Bot m s i o -> s -> Behavior m i o
-fixBot (Bot b) = go
-  where
-  go s = Behavior $ \i -> first go <$> b i s
+fixBot (Bot b) = go where go s = Behavior $ \i -> first go <$> b i s

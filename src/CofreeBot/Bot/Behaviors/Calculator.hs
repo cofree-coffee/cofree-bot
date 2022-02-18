@@ -16,7 +16,8 @@ calculatorBot = Bot $ \program state ->
 
 parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
-  pure $ "Failed to parse msg: \""
+  pure
+    $  "Failed to parse msg: \""
     <> parseInput
     <> "\". Error message was: \""
     <> parseError

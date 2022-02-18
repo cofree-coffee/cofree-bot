@@ -5,6 +5,6 @@ module CofreeBot.Server
   , module Type
   ) where
 
-import CofreeBot.Server.Matrix as Matrix
-import CofreeBot.Server.Repl as Repl
-import CofreeBot.Server.Type as Type
+import           CofreeBot.Server.Matrix       as Matrix
+import           CofreeBot.Server.Repl         as Repl
+import           CofreeBot.Server.Type         as Type
