@@ -5,9 +5,10 @@
 module CofreeBot.Bot.Context where
 
 import           CofreeBot.Bot
+import           CofreeBot.Server
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import           Data.Bifunctor                 ( bimap, Bifunctor (first) )
+import           Data.Bifunctor                 ( Bifunctor (first) )
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T

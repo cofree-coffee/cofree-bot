@@ -1,6 +1,7 @@
 module CofreeBot.Bot.Behaviors.Jitsi where
 
 import CofreeBot.Bot
+import           CofreeBot.Server
 import CofreeBot.Bot.Behaviors.Jitsi.Dictionary
 import qualified Data.Text as T
 import Data.Profunctor

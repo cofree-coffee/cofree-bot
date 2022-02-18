@@ -1,6 +1,7 @@
 module CofreeBot.Bot.Behaviors.Magic8Ball where
 
 import           CofreeBot.Bot
+import           CofreeBot.Server
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )
 import qualified Data.Text                     as T

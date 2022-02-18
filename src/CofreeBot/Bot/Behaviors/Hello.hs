@@ -2,6 +2,7 @@
 module CofreeBot.Bot.Behaviors.Hello where
 
 import           CofreeBot.Bot
+import           CofreeBot.Server
 import qualified Data.Text                     as T
 
 helloSimpleBot :: Applicative m => TextBot m s

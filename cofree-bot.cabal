@@ -56,9 +56,9 @@ executable cofree-bot
   hs-source-dirs: app
   build-depends:
     , cofree-bot
+    , mtl
     , optparse-applicative
     , xdg-basedir
-    , mtl
 
   other-modules:  OptionsParser
 
@@ -82,6 +82,10 @@ library
     CofreeBot.Bot.Behaviors.Magic8Ball
     CofreeBot.Bot.Behaviors.Updog
     CofreeBot.Bot.Context
+    CofreeBot.Server
+    CofreeBot.Server.Matrix
+    CofreeBot.Server.Repl
+    CofreeBot.Server.Type
     CofreeBot.Utils
     CofreeBot.Utils.ListT
 

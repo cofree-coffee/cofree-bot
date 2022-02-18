@@ -1,6 +1,7 @@
 module CofreeBot.Bot.Behaviors.Updog where
 
 import           CofreeBot.Bot
+import           CofreeBot.Server.Matrix
 import           Control.Applicative (liftA2, empty)
 import           Data.String
 import           Data.Text (Text)
