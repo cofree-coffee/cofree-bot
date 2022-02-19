@@ -11,6 +11,8 @@ import           Control.Lens            hiding ( from
                                                 )
 import           Control.Monad
 import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.Foldable
 import           Data.IORef
 import           Data.Kind
@@ -25,6 +27,7 @@ import           System.IO
 import           System.IO.Error                ( isDoesNotExistError )
 import           System.Random
 
+
 --------------------------------------------------------------------------------
 -- Kinds
 --------------------------------------------------------------------------------
@@ -35,51 +38,45 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 -- Types
 --------------------------------------------------------------------------------
 
-data BotAction s o = BotAction
-  { responses :: o
-  , nextState :: s
-  }
-  deriving Functor
-
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
 type Bot :: KBot
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+
+newtype Bot m s i o = Bot { runBot :: s -> i -> m (o, s) }
+  deriving
+    (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
+  via StateT s (ReaderT i m)
 
 --------------------------------------------------------------------------------
 -- Instances
 --------------------------------------------------------------------------------
 
-instance (Semigroup s, Semigroup o) => Semigroup (BotAction s o) where
-  BotAction o s <> BotAction o' s' =
-    BotAction { responses = o <> o', nextState = s <> s' }
-
-instance (Monoid s, Monoid o) => Monoid (BotAction s o) where
-  mempty = BotAction { responses = mempty, nextState = mempty }
-
-instance Bifunctor BotAction where
-  bimap f g (BotAction a b) = BotAction (g a) (f b)
-
 instance Monad m => Cat.Category (Bot m s) where
-  id = Bot $ \a s -> pure $ BotAction a s
+  id = ask
 
-  Bot f . Bot g = Bot $ \a s -> do
-    BotAction b s' <- g a s
-    f b s'
+  Bot f . Bot g = do
+    i        <- ask
+    s        <- get
+    (b, s' ) <- liftEffect $ g s i
+    (c, s'') <- liftEffect $ f s' b
+    put s''
+    pure c
+
 
 instance Monad m => Arrow.Arrow (Bot m s) where
   arr f = rmap f (Cat.id)
   first = first'
 
 instance Functor f => Profunctor (Bot f s) where
-  dimap f g (Bot bot) = Bot $ \a -> fmap (fmap g) . bot (f a)
+  dimap f g (Bot bot) = do
+    Bot $ \s i -> fmap (Arrow.first g) $ bot s (f i)
 
 instance Functor f => Strong (Bot f s) where
-  first' (Bot bot) = Bot $ \(a, c) -> fmap (fmap (, c)) . bot a
+  first' (Bot bot) = Bot $ \s (a, c) -> fmap (Arrow.first (, c)) $ bot s a
 
 instance Applicative f => Choice (Bot f s) where
-  left' (Bot bot) = Bot $ either ((fmap . fmap . fmap) Left . bot)
-                                 (\c s -> pure $ BotAction (Right c) s)
+  left' (Bot bot) = Bot $ \s ->
+    either (fmap (Arrow.first Left) . bot s) (\c -> pure $ (,) (Right c) s)
 
 --------------------------------------------------------------------------------
 -- Operations
@@ -87,18 +84,25 @@ instance Applicative f => Choice (Bot f s) where
 
 -- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
-invmapBot f g (Bot b) = Bot $ \i s -> (b i (g s)) <&> bimap f id
+invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
+
+liftEffect :: Monad m => m o -> Bot m s i o
+liftEffect m = Bot $ \s _ -> do
+  o <- m
+  pure (o, s)
 
 nudge
   :: Applicative m
   => Bot m s i o \/ Bot m s i' o'
   -> Bot m s (i \/ i') (o \?/ o')
 nudge = either
-  (\(Bot b) -> Bot $ either ((fmap . fmap . fmap . fmap) (Just . Left) $ b)
-                            (const $ \s -> pure $ BotAction Nothing s)
+  (\(Bot b) -> Bot $ \s -> either
+    (fmap (fmap (Arrow.first (Just . Left))) $ b s)
+    (const $ pure $ (,) Nothing s)
   )
-  (\(Bot b) -> Bot $ either (const $ \s -> pure $ BotAction Nothing s)
-                            ((fmap . fmap . fmap . fmap) (Just . Right) $ b)
+  (\(Bot b) -> Bot $ \s -> either
+    (const $ pure $ (,) Nothing s)
+    (fmap (fmap (Arrow.first (Just . Right))) $ b s)
   )
 
 nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
@@ -109,24 +113,24 @@ nudgeRight = nudge . Right
 
 infixr /\
 (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
-(/\) (Bot b1) (Bot b2) = Bot $ \i (s, s') -> do
-  BotAction {..} <- b1 i s
-  BotAction { nextState = nextState', responses = responses' } <- b2 i s'
-  pure $ BotAction (responses, responses') (nextState, nextState')
+(/\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
+  (nextState , responses ) <- b1 s i
+  (nextState', responses') <- b2 s' i
+  pure $ (,) (nextState, nextState') (responses, responses')
 
 infixr \/
 (\/)
   :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
-(\/) (Bot b1) (Bot b2) = Bot
-  $ either ((fmap . fmap . fmap) Left . b1) ((fmap . fmap . fmap) Right . b2)
+(\/) (Bot b1) (Bot b2) = Bot $ \s ->
+  either (fmap (Arrow.first Left) . b1 s) (fmap (Arrow.first Right) . b2 s)
 
 pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
-pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
+pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
 
 mapMaybeBot
   :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 mapMaybeBot f (Bot bot) =
-  Bot $ \i s -> maybe (pure (BotAction mempty s)) (flip bot s) $ f i
+  Bot $ \s i -> maybe (pure ((,) mempty s)) (bot s) $ f i
 
 emptyBot :: (Monoid o, Applicative m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
@@ -171,8 +175,8 @@ runMatrixBot session cache bot s = do
  where
   go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
   go ref input = do
-    state          <- liftIO $ readIORef ref
-    BotAction {..} <- liftIO $ runBot bot input state
+    st                     <- liftIO $ readIORef ref
+    (responses, nextState) <- liftIO $ runBot bot st input
     liftIO $ writeIORef ref nextState
     gen <- newStdGen
     let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
@@ -181,22 +185,20 @@ runMatrixBot session cache bot s = do
                                  txnIds
 
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
-simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
-  BotAction {..} <- bot (RoomID mempty, mkMsg i) s
-  pure $ BotAction (fmap (viewBody . snd) $ responses) nextState
+simplifyMatrixBot (Bot bot) = Bot $ \s i -> do
+  (responses, nextState) <- bot s (RoomID mempty, mkMsg i)
+  pure $ (,) (fmap (viewBody . snd) $ responses) nextState
 
 liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
-liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (viewBody i) s
+liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
+  fmap (Arrow.first (fmap (\t -> (rid, mkMsg t)))) $ bot s (viewBody i)
 
 viewBody :: Event -> T.Text
 viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
 
 mkMsg :: T.Text -> Event
-mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
-                                                             TextType
-                                                             Nothing
-                                                             Nothing
+mkMsg msg =
+  EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
 
 --------------------------------------------------------------------------------
 -- Text Bot
@@ -211,10 +213,10 @@ runTextBot :: forall s . TextBot IO s -> s -> IO ()
 runTextBot bot = go
  where
   go :: s -> IO ()
-  go state = do
+  go st = do
     putStr "<<< "
     hFlush stdout
-    input          <- getLine
-    BotAction {..} <- runBot bot (T.pack input) state
+    input                  <- getLine
+    (responses, nextState) <- runBot bot st (T.pack input)
     traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
     go nextState

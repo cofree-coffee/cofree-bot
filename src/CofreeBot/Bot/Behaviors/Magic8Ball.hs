@@ -1,20 +1,24 @@
 module CofreeBot.Bot.Behaviors.Magic8Ball where
 
 import           CofreeBot.Bot
+import           Control.Monad.Reader
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )
+import           Data.Profunctor
 import qualified Data.Text                     as T
 import           System.Random
 
 magic8BallBot :: Bot IO () () Int
-magic8BallBot = Bot $ \_ s -> do
-  result <- randomRIO (1, 20)
-  pure $ BotAction result s
+magic8BallBot = do
+  randomRIO (1, 20)
 
 simplifyMagic8BallBot :: forall s . Bot IO s () Int -> TextBot IO s
-simplifyMagic8BallBot (Bot bot) = Bot $ \i s -> case to i of
-  Left  _ -> pure $ BotAction [] s
-  Right _ -> fmap (fmap from) $ bot () s
+simplifyMagic8BallBot b = do
+  t <- ask
+  case to t of
+    Left  _ -> pure []
+    Right _ -> do
+      dimap (const ()) from $ b
  where
   to :: T.Text -> Either T.Text ()
   to = fmap (bimap T.pack id) $ parseOnly parseMagic8BallCommand
