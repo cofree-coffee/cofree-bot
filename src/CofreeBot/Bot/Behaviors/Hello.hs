@@ -4,12 +4,12 @@ module CofreeBot.Bot.Behaviors.Hello where
 import           CofreeBot.Bot
 import qualified Data.Text                     as T
 
-helloSimpleBot :: Applicative m => TextBot m s
+helloSimpleBot :: Monad m => TextBot m s
 helloSimpleBot = pureStatelessBot $ \msg ->
   let name = "cofree-bot"
   in  if name `T.isInfixOf` msg
-        then pure "Are you talking to me, punk?"
+        then "Are you talking to me, punk?"
         else mempty
 
-helloMatrixBot :: Applicative m => MatrixBot m ()
+helloMatrixBot :: Monad m => MatrixBot m ()
 helloMatrixBot = liftSimpleBot $ helloSimpleBot

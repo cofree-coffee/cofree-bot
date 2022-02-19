@@ -36,13 +36,13 @@ runMatches ms = flip foldMap ms $ \m t ->
 what :: Matcher
 what = "what" ||| "What" ||| "WHAT"
 
-updogSimpleBot :: Applicative m => Bot m s Text [Text]
-updogSimpleBot = pureStatelessBot $ runMatches
+updogSimpleBot :: Monad m => Bot m s Text Text
+updogSimpleBot = pureStatelessBot' $ runMatches
   [ Match (what <> "updog") "nothin much whats up with you dog"
   , Match (what <> "snakesay") "Hissss, hisssss"
   , Match (what <> "OPP") "yo, you know me!"
   ]
 
-updogMatrixBot :: Applicative m => MatrixBot m ()
+updogMatrixBot :: Monad m => MatrixBot m ()
 updogMatrixBot = liftSimpleBot updogSimpleBot
 

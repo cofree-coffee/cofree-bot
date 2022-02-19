@@ -31,7 +31,7 @@ main = do
 bot process =
   let calcBot =
         liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+          $ simplifySessionBot printCalcOutput programP
           $ sessionize mempty
           $ calculatorBot
       helloBot     = helloMatrixBot

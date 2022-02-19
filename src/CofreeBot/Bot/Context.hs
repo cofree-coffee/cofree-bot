@@ -88,23 +88,23 @@ parseSessionInfo p = do
 
 simplifySessionBot
   :: forall m s i o
-   . (Show s, Applicative m)
+   . (Show s, Monad m)
   => (o -> T.Text)
   -> Parser i
   -> Bot m s (SessionInput i) (SessionOutput o)
   -> TextBot m s
 simplifySessionBot tshow p (Bot bot) = Bot $ \i s -> do
   case to i of
-    Left  _  -> pure $ BotAction [] s
+    Left  _  -> pure $ BotAction mempty s
     Right si -> fmap (fmap from) $ bot si s
  where
   to :: T.Text -> Either T.Text (SessionInput i)
   to = fmap (bimap T.pack id) $ parseOnly $ (parseSessionInfo p)
 
-  from :: SessionOutput o -> [T.Text]
+  from :: SessionOutput o -> T.Text
   from = \case
     SessionOutput n o ->
-      pure $ "Session '" <> T.pack (show n) <> "' Output:\n" <> tshow o
-    SessionStarted n -> pure $ "Session Started: '" <> T.pack (show n) <> "'."
-    SessionEnded   n -> pure $ "Session Ended: '" <> T.pack (show n) <> "'."
-    InvalidSession n -> pure $ "Invalid Session: '" <> T.pack (show n) <> "'."
+      "Session '" <> T.pack (show n) <> "' Output:\n" <> tshow o
+    SessionStarted n -> "Session Started: '" <> T.pack (show n) <> "'."
+    SessionEnded   n -> "Session Ended: '" <> T.pack (show n) <> "'."
+    InvalidSession n -> "Invalid Session: '" <> T.pack (show n) <> "'."
