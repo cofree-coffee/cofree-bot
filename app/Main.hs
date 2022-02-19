@@ -28,7 +28,7 @@ main = do
       matrixMain session xdgCache
     CLI -> cliMain
 
-bot process =
+bot process = 
   let calcBot =
         liftSimpleBot
           $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
