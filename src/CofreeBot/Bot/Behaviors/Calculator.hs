@@ -1,36 +1,28 @@
-module CofreeBot.Bot.Behaviors.Calculator where
+module CofreeBot.Bot.Behaviors.Calculator (calculatorBot) where
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
-import           CofreeBot.Utils
 import           Data.Functor
-import           Data.Profunctor
-import qualified Data.Text                     as T
+import Data.String
+import CofreeBot.MessagingAPI
+import qualified Data.Attoparsec.Text as A
 
 type CalculatorOutput = Either CalcError [CalcResp]
-type CalculatorBot = Bot IO CalcState Program CalculatorOutput
 
-calculatorBot :: CalculatorBot
-calculatorBot = Bot $ \program state ->
+interpreterBot :: Bot IO CalcState Program CalculatorOutput
+interpreterBot = Bot $ \program state ->
   fmap (uncurry BotAction) $ interpretProgram program state
 
-parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
-parseErrorBot = pureStatelessBot $ \ParseError {..} ->
-  pure $ "Failed to parse msg: \""
-    <> parseInput
-    <> "\". Error message was: \""
-    <> parseError
-    <> "\"."
+calculatorBot :: forall api. (MessagingAPI api, IsString (MessageContent api)) => Bot IO CalcState (Channel api, MessageReference api) [APIAction api]
+calculatorBot = Bot $ \(chan, msg) s -> do
+  case runMessageParser parse msg of
+    Nothing -> pure $ BotAction [] s
+    Just program -> fmap (fmap (prettyPrint chan)) $ runBot interpreterBot program s
 
-simplifyCalculatorBot
-  :: Applicative m
-  => Bot m s Program (Either CalcError [CalcResp])
-  -> Bot m s T.Text [T.Text]
-simplifyCalculatorBot bot =
-  dimap parseProgram indistinct $ parseErrorBot \/ rmap printCalcOutput bot
+parse :: A.Parser Program
+parse = "arith:" *> A.many' A.space *> programP
 
-printCalcOutput :: Either CalcError [CalcResp] -> [T.Text]
-printCalcOutput = \case
-  Left  err   -> pure $ T.pack $ show err
-  Right resps -> resps <&> \case
-    Log e n -> T.pack $ show e <> " = " <> show n
+prettyPrint :: IsString (MessageContent api) => Channel api -> Either CalcError [CalcResp] -> [APIAction api]
+prettyPrint chan = \case
+  Left err -> pure $ APIAction $ MkMessage chan $ fromString $ show err
+  Right resp -> resp <&> (\(Log e n) -> APIAction $ MkMessage chan $ fromString $ show e <> " = " <> show n)

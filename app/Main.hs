@@ -6,13 +6,15 @@ import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           Control.Monad
 import           Data.Profunctor
-import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           Network.Matrix.Client
 import qualified Options.Applicative           as Opt
 import           OptionsParser
 import           System.Environment.XDG.BaseDir ( getUserCacheDir )
 import           System.Process.Typed
+import Data.String
+import CofreeBot.MessagingAPI
+import GHC.IO.Handle
 
 main :: IO ()
 main = do
@@ -28,33 +30,40 @@ main = do
       matrixMain session xdgCache
     CLI -> cliMain
 
-bot process =
-  let calcBot =
-        liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
-          $ sessionize mempty
-          $ calculatorBot
-      helloBot     = helloMatrixBot
-      coinFlipBot' = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
-      ghciBot'     = liftSimpleBot $ ghciBot process
-      magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
-  in rmap (\(x :& y :& z :& q :& w :& p :& r) -> x <> y <> z <> q <> w <> p <> r)
-          $  calcBot
+bot :: forall api.
+ ( MessagingAPI api
+ , IsString (MessageContent api)
+ ) => Process Handle Handle () ->
+ Bot
+   IO
+   (CalcState /\ (() /\ (() /\ (() /\ (() /\ (() /\ (() /\ ())))))))
+   (Channel api, MessageReference api)
+   [APIAction api]
+bot process = 
+  let foo = sessionize mempty (calculatorBot @api)
+     -- calcBot =
+     --   liftSimpleBot
+     --     $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+     --     $ sessionize mempty
+     --     $ calculatorBot
+  in rmap (\(a :& b :& c :& d :& e :& f :& g :& h) -> a <> b <> c <> d <> e <> f <> g <> h)
+          $  calculatorBot 
           /\ helloBot
-          /\ coinFlipBot'
-          /\ ghciBot'
-          /\ magic8BallBot'
-          /\ updogMatrixBot
-          /\ liftSimpleBot jitsiBot
+          /\ coinFlipBot
+          /\ ghciBot process
+          /\ magic8BallBot @()
+          /\ updogBot @()
+          /\ jitsiBot
+          /\ adminBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runTextBot (simplifyMatrixBot $ bot process) mempty
+  runRepl (bot process) mempty
 
 matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  runMatrixBot session xdgCache (bot process) mempty
+  runMatrix session xdgCache (bot process) mempty

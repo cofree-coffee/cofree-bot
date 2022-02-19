@@ -1,29 +1,23 @@
-module CofreeBot.Bot.Behaviors.CoinFlip where
+module CofreeBot.Bot.Behaviors.CoinFlip (coinFlipBot) where
 
 import           CofreeBot.Bot
-import           Data.Attoparsec.Text
-import           Data.Bifunctor                 ( bimap )
-import qualified Data.Text                     as T
+import           CofreeBot.MessagingAPI
+import qualified Data.Attoparsec.Text as A
+import           Data.String (IsString)
 import           System.Random
 
-coinFlipBot :: Bot IO () () Bool
-coinFlipBot = Bot $ \_ s -> do
-  gen <- newStdGen
-  let (result, _) = random @Bool gen
-  pure $ BotAction result s
+coinFlipBot :: forall api. (MessagingAPI api, IsString (MessageContent api)) => Bot IO () (Channel api, MessageReference api) [APIAction api]
+coinFlipBot = Bot $ \(chan, msg) s ->
+   case runMessageParser parse msg of
+     Nothing -> pure $ BotAction [] s
+     Just _ -> fmap (fmap (prettyPrint chan)) $ runBot coinFlip () s
 
-simplifyCoinFlipBot :: forall s . Bot IO s () Bool -> TextBot IO s
-simplifyCoinFlipBot (Bot bot) = Bot $ \i s -> case to i of
-  Left  _ -> pure $ BotAction [] s
-  Right _ -> fmap (fmap from) $ bot () s
- where
-  to :: T.Text -> Either T.Text ()
-  to = fmap (bimap T.pack id) $ parseOnly parseCoinFlipCommand
+coinFlip :: Bot IO () () Bool
+coinFlip = liftEffect $ randomIO @Bool
 
-  from :: Bool -> [T.Text]
-  from = \case
-    True  -> pure "Coin Flip Result: True"
-    False -> pure "Coin Flip Result: False"
+parse :: A.Parser ()
+parse = "flip a coin" *> pure ()
 
-parseCoinFlipCommand :: Parser ()
-parseCoinFlipCommand = "flip a coin" *> pure ()
+prettyPrint :: IsString (MessageContent api) => Channel api -> Bool -> [APIAction api]
+prettyPrint chan True = pure $ APIAction $ MkMessage chan $ "Coin Flip Result: True"
+prettyPrint chan False = pure $ APIAction $ MkMessage chan $ "Coin Flip Result: False"

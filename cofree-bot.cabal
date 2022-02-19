@@ -71,6 +71,7 @@ library
     CofreeBot
     CofreeBot.Bot
     CofreeBot.Bot.Behaviors
+    CofreeBot.Bot.Behaviors.Admin
     CofreeBot.Bot.Behaviors.Calculator
     CofreeBot.Bot.Behaviors.Calculator.Language
     CofreeBot.Bot.Behaviors.CoinFlip
@@ -81,6 +82,9 @@ library
     CofreeBot.Bot.Behaviors.Magic8Ball
     CofreeBot.Bot.Behaviors.Updog
     CofreeBot.Bot.Context
+    CofreeBot.Bot.Harness.Matrix
+    CofreeBot.Bot.Harness.Repl
+    CofreeBot.MessagingAPI
     CofreeBot.Utils
     CofreeBot.Utils.ListT
 

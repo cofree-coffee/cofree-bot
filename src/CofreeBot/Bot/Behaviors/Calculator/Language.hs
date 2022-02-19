@@ -7,7 +7,6 @@ import           Control.Monad.Error.Class
 import           Control.Monad.Except
 import           Control.Monad.RWS.Class
 import           Control.Monad.State
-import           Control.Monad.State.Class
 import           Control.Monad.Writer
 import           Data.Attoparsec.Text          as A
 import           Data.Bifunctor

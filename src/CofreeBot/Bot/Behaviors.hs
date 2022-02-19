@@ -1,5 +1,6 @@
 module CofreeBot.Bot.Behaviors
-  ( module Calculator
+  ( module Admin
+  , module Calculator
   , module CoinFlip
   , module GHCI
   , module Hello
@@ -8,6 +9,7 @@ module CofreeBot.Bot.Behaviors
   , module Updog
   ) where
 
+import           CofreeBot.Bot.Behaviors.Admin as Admin
 import           CofreeBot.Bot.Behaviors.Calculator
                                                as Calculator
 import           CofreeBot.Bot.Behaviors.CoinFlip

@@ -1,15 +1,12 @@
 -- | The Simplest Bot
-module CofreeBot.Bot.Behaviors.Hello where
+module CofreeBot.Bot.Behaviors.Hello (helloBot) where
 
 import           CofreeBot.Bot
-import qualified Data.Text                     as T
+import CofreeBot.MessagingAPI
+import           GHC.Exts
 
-helloSimpleBot :: Applicative m => TextBot m s
-helloSimpleBot = pureStatelessBot $ \msg ->
-  let name = "cofree-bot"
-  in  if name `T.isInfixOf` msg
-        then pure "Are you talking to me, punk?"
-        else mempty
-
-helloMatrixBot :: Applicative m => MatrixBot m ()
-helloMatrixBot = liftSimpleBot $ helloSimpleBot
+helloBot :: (IsString (MessageContent api), MessagingAPI api, Applicative m) => Bot m () (Channel api, MessageReference api) [APIAction api]
+helloBot = pureStatelessBot $ \(rid, re) ->
+  if messageMentionsBot re
+    then [APIAction $ MkReply rid re "Are you talking to me, punk?"]
+    else []

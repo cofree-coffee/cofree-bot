@@ -1,29 +1,23 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
 import qualified Control.Arrow                 as Arrow
 import qualified Control.Category              as Cat
-import           Control.Exception              ( catch
-                                                , throwIO
-                                                )
 import           Control.Lens            hiding ( from
                                                 , to
+                                                , re
+                                                , Context
                                                 )
-import           Control.Monad
-import           Control.Monad.Except
-import           Data.Foldable
-import           Data.IORef
 import           Data.Kind
-import qualified Data.Map.Strict               as Map
 import           Data.Profunctor
 import qualified Data.Text                     as T
-import qualified Data.Text.IO                  as T
-import           Network.Matrix.Client
+import qualified Network.Matrix.Client         as NMC
 import           Network.Matrix.Client.Lens
-import           System.Directory               ( createDirectoryIfMissing )
-import           System.IO
-import           System.IO.Error                ( isDoesNotExistError )
-import           System.Random
+import           Control.Lens.Unsound
+import           GHC.Exts
 
 --------------------------------------------------------------------------------
 -- Kinds
@@ -120,6 +114,18 @@ infixr \/
 (\/) (Bot b1) (Bot b2) = Bot
   $ either ((fmap . fmap . fmap) Left . b1) ((fmap . fmap . fmap) Right . b2)
 
+infixr \?/
+(\?/)
+  :: Applicative  m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \?/ i') (o \?/ o')
+(\?/) (Bot b1) (Bot b2) = Bot $ \i s ->
+  case i of
+  Nothing -> pure $ BotAction Nothing s
+  Just (Left i') -> let r = b1 i' s in fmap (fmap (Just . Left)) r
+  Just (Right i') -> let r = b2 i' s in fmap (fmap (Just . Right)) r
+
+-- | Lift a pure function into a bot. This could be 'Arrow.arr' but
+-- then we would have a 'Monad' constraint on 'm' due to our
+-- 'Category' instance.
 pureStatelessBot :: Applicative m => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \i s -> pure $ BotAction (f i) s
 
@@ -131,90 +137,12 @@ mapMaybeBot f (Bot bot) =
 emptyBot :: (Monoid o, Applicative m) => Bot m s i o
 emptyBot = pureStatelessBot $ const mempty
 
---------------------------------------------------------------------------------
--- Matrix Bot
---------------------------------------------------------------------------------
+-- | Lift a 'Functor' 'm a' into a bot.
+liftEffect :: Functor m => m a -> Bot m s i a
+liftEffect ma = Bot $ \_ s -> fmap (flip BotAction s) $ ma
 
-type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
+roomMessageOfEvent :: Traversal' NMC.Event NMC.RoomMessage
+roomMessageOfEvent = _EventRoomMessage `adjoin` (_EventRoomReply . _2) `adjoin` (_EventRoomEdit . _2)
 
-readFileMaybe :: String -> IO (Maybe T.Text)
-readFileMaybe path = (fmap Just $ T.readFile path)
-  `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
-
-runMatrixBot
-  :: forall s . ClientSession -> String -> MatrixBot IO s -> s -> IO ()
-runMatrixBot session cache bot s = do
-  ref <- newIORef s
-  createDirectoryIfMissing True cache
-  since <- readFileMaybe $ cache <> "/since_file"
-  void $ runExceptT $ do
-    userId   <- ExceptT $ getTokenOwner session
-    filterId <- ExceptT $ createFilter session userId messageFilter
-    syncPoll session (Just filterId) since (Just Online) $ \syncResult -> do
-      let newSince :: T.Text
-          newSince = syncResult ^. _srNextBatch
-
-          roomsMap :: Map.Map T.Text JoinedRoomSync
-          roomsMap = syncResult ^. _srRooms . _Just . _srrJoin . ifolded
-
-          roomEvents :: Map.Map T.Text [RoomEvent]
-          roomEvents = roomsMap <&> view (_jrsTimeline . _tsEvents . _Just)
-
-          events :: [(RoomID, Event)]
-          events = Map.foldMapWithKey
-            (\rid es -> fmap ((RoomID rid, ) . view _reContent) es)
-            roomEvents
-
-      liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
-      liftIO $ print roomEvents
-      traverse_ (go ref) events
- where
-  go :: MonadIO m => IORef s -> (RoomID, Event) -> m ()
-  go ref input = do
-    state          <- liftIO $ readIORef ref
-    BotAction {..} <- liftIO $ runBot bot input state
-    liftIO $ writeIORef ref nextState
-    gen <- newStdGen
-    let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
-                                 responses
-                                 txnIds
-
-simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
-simplifyMatrixBot (Bot bot) = Bot $ \i s -> do
-  BotAction {..} <- bot (RoomID mempty, mkMsg i) s
-  pure $ BotAction (fmap (viewBody . snd) $ responses) nextState
-
-liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
-liftSimpleBot (Bot bot) = Bot
-  $ \(rid, i) s -> fmap (fmap (fmap ((rid, ) . mkMsg))) $ bot (viewBody i) s
-
-viewBody :: Event -> T.Text
-viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
-
-mkMsg :: T.Text -> Event
-mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg
-                                                             TextType
-                                                             Nothing
-                                                             Nothing
-
---------------------------------------------------------------------------------
--- Text Bot
---------------------------------------------------------------------------------
-
--- | A 'SimpleBot' maps from 'Text' to '[Text]'. Lifting into a
--- 'SimpleBot' is useful for locally debugging another bot.
-type TextBot m s = Bot m s T.Text [T.Text]
-
--- | An evaluator for running 'TextBots' in 'IO'
-runTextBot :: forall s . TextBot IO s -> s -> IO ()
-runTextBot bot = go
- where
-  go :: s -> IO ()
-  go state = do
-    putStr "<<< "
-    hFlush stdout
-    input          <- getLine
-    BotAction {..} <- runBot bot (T.pack input) state
-    traverse_ (putStrLn . T.unpack . (">>> " <>)) responses
-    go nextState
+instance IsString NMC.MessageText where
+  fromString msg = NMC.MessageText (T.pack msg) NMC.TextType Nothing Nothing

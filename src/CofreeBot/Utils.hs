@@ -1,8 +1,14 @@
 module CofreeBot.Utils where
 
 import           Control.Applicative
+import           Control.Exception              ( catch
+                                                , throwIO
+                                                )
 import           Control.Arrow                  ( (&&&) )
 import           Data.Kind
+import qualified Data.Text                     as T
+import qualified Data.Text.IO                  as T
+import           System.IO.Error                ( isDoesNotExistError )
 
 -------------------------------------------------------------------------------
 -- Tensors
@@ -81,3 +87,11 @@ distinguish f x | f x       = Right x
 class PointedChoice p where
   pleft :: p a b -> p (x \?/ a) (x \?/ b)
   pright :: p a b -> p (a \?/ x) (b \?/ x)
+
+-------------------------------------------------------------------------------
+-- Misc IO Operations
+-------------------------------------------------------------------------------
+
+readFileMaybe :: String -> IO (Maybe T.Text)
+readFileMaybe path = (fmap Just $ T.readFile path)
+  `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
