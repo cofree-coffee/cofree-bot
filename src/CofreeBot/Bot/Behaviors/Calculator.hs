@@ -3,22 +3,19 @@ module CofreeBot.Bot.Behaviors.Calculator where
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           CofreeBot.Utils
+import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.Functor
 import           Data.Profunctor
 import qualified Data.Text                     as T
-import Control.Monad.State
-import Control.Monad.Reader
 
 type CalculatorOutput = Either CalcError [CalcResp]
 type CalculatorBot = Bot IO CalcState Program CalculatorOutput
 
 calculatorBot :: CalculatorBot
 calculatorBot = do
-  st <- get
   program <- ask
-  (output, st') <- liftEffect $ interpretProgram program st
-  put st'
-  pure output
+  state (interpretProgram program)
 
 parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
