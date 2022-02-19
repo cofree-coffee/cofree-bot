@@ -3,6 +3,8 @@ module CofreeBot.Bot.Behaviors.Calculator where
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           CofreeBot.Utils
+import           Control.Monad.Reader
+import           Control.Monad.State
 import           Data.Functor
 import           Data.Profunctor
 import qualified Data.Text                     as T
@@ -11,12 +13,14 @@ type CalculatorOutput = Either CalcError [CalcResp]
 type CalculatorBot = Bot IO CalcState Program CalculatorOutput
 
 calculatorBot :: CalculatorBot
-calculatorBot = Bot $ \program state ->
-  fmap (uncurry BotAction) $ interpretProgram program state
+calculatorBot = do
+  program <- ask
+  state (interpretProgram program)
 
 parseErrorBot :: Applicative m => Bot m s ParseError [T.Text]
 parseErrorBot = pureStatelessBot $ \ParseError {..} ->
-  pure $ "Failed to parse msg: \""
+  pure
+    $  "Failed to parse msg: \""
     <> parseInput
     <> "\". Error message was: \""
     <> parseError

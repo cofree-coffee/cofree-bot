@@ -1,24 +1,23 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
+{-# language RankNTypes #-}
 module CofreeBot.Bot.Behaviors.Calculator.Language where
 
 import           CofreeBot.Utils
 import           Control.Applicative
+import qualified Control.Arrow                 as Arrow
 import           Control.Monad.Error.Class
 import           Control.Monad.Except
 import           Control.Monad.RWS.Class
 import           Control.Monad.State
-import           Control.Monad.State.Class
 import           Control.Monad.Writer
 import           Data.Attoparsec.Text          as A
 import           Data.Bifunctor
 import           Data.Char                      ( isAlpha
                                                 , isDigit
                                                 )
-import           Data.Coerce
-import           Data.Foldable                  ( Foldable(fold)
-                                                , asum
-                                                )
+import           Data.Foldable
 import           Data.Functor
+import           Data.Functor.Identity
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Map.Strict               as Map
 import qualified Data.Text                     as T
@@ -137,11 +136,31 @@ data CalcResp = Log Expr Int
 -- Evaluator
 --------------------------------------------------------------------------------
 
-type CalculatorM
-  = Transformers '[WriterT [CalcResp] , ExceptT CalcError , StateT CalcState] IO
+newtype CalculatorM m a =
+  CalculatorM {runCalculatorM :: CalcState -> m (Either CalcError (a,  [CalcResp]), CalcState) }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadState CalcState
+    , MonadError CalcError
+    , MonadWriter [CalcResp]
+    )
+  via
+    Transformers '[WriterT [CalcResp] , ExceptT CalcError , StateT CalcState] m
+
+execCalc
+  :: CalcState
+  -> (forall m . Monad m => CalculatorM m a)
+  -> (Either CalcError [CalcResp], CalcState)
+execCalc calcState calc =
+  Arrow.first (fmap snd)
+    . runIdentity                       -- (Either CalcError (a, [CalcResp]), CalcState)
+    . runCalculatorM calc
+    $ calcState
 
 -- | Evaluate an expression in our arithmetic language
-eval :: Expr -> CalculatorM Int
+eval :: (Monad m) => Expr -> CalculatorM m Int
 eval = \case
   Var bndr -> do
     s <- get
@@ -152,7 +171,7 @@ eval = \case
   Neg x    -> fmap negate $ eval x
 
 -- | Interpret a language statement into response.
-interpretStatement :: Statement -> CalculatorM ()
+interpretStatement :: Monad m => Statement -> CalculatorM m ()
 interpretStatement = \case
   Let bndr expr -> do
     val <- eval expr
@@ -162,9 +181,6 @@ interpretStatement = \case
     tell [Log expr val]
 
 interpretProgram
-  :: Program -> CalcState -> IO (Either CalcError [CalcResp], CalcState)
-interpretProgram =
-  (fmap . fmap . first . fmap) (snd @())
-    . coerce
-    . fmap fold
-    . traverse interpretStatement
+  :: Program -> CalcState -> (Either CalcError [CalcResp], CalcState)
+interpretProgram program calcState =
+  execCalc calcState $ traverse_ interpretStatement program
