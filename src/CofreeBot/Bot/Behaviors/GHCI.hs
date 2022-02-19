@@ -15,6 +15,8 @@ import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
+import CofreeBot.MessagingAPI
+import Data.String
 
 type GhciBot = Bot IO () T.Text [T.Text]
 
@@ -32,11 +34,17 @@ ghciBot' p =
         o <- hGetOutput (getStdout p)
         pure $ BotAction (pure $ T.pack o) s
 
-ghciBot :: Process Handle Handle () -> GhciBot
-ghciBot p =
+ghciBotSafe :: Process Handle Handle () -> GhciBot
+ghciBotSafe p =
   dimap (distinguish (/= "ghci: :q")) indistinct
     $  pureStatelessBot (const $ ["I'm Sorry Dave"])
     \/ ghciBot' p
+
+ghciBot :: forall api. (MessagingAPI api, IsString (MessageContent api)) => Process Handle Handle () -> Bot IO () (Channel api, MessageReference api) [APIAction api]
+ghciBot p = Bot $ \(chan, msg) s ->
+  case runMessageParser ghciInputParser msg of
+  Nothing -> pure $ BotAction [] s
+  Just i -> fmap (fmap (fmap (APIAction . MkMessage chan . fromString . T.unpack))) $ runBot (ghciBotSafe p) i s
 
 ghciConfig :: ProcessConfig Handle Handle ()
 ghciConfig = setStdin createPipe $ setStdout createPipe $ shell

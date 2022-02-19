@@ -5,11 +5,12 @@ module CofreeBot.Bot.Context where
 import           CofreeBot.Bot
 import           Control.Applicative
 import           Data.Attoparsec.Text
-import           Data.Bifunctor                 ( bimap )
+import           Data.Bifunctor                 ( bimap, Bifunctor (first) )
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T
 import           Network.Matrix.Client
+import CofreeBot.MessagingAPI
 
 --------------------------------------------------------------------------------
 -- Room Awareness
@@ -70,6 +71,21 @@ sessionize defaultState (Bot bot) = Bot $ \si (SessionState s) -> case si of
 
 data Nue = New | Use | End
 
+runSession :: (MessagingAPI api, Applicative m) =>
+  Bot m (SessionState s) (SessionInput (Channel api, MessageReference api)) (SessionOutput [APIAction api]) ->
+  (Parser (MessageReference api)) ->
+  Bot m (SessionState s) (Channel api, MessageReference api) [APIAction api]
+runSession bot p = Bot $ \(chan, msg) s ->
+  let p' = parseSessionInfo p
+  in case runMessageParser p' msg of
+    Nothing -> _
+    Just (InteractWithSession n msg') ->
+      case runMessageParser p msg' of
+        Nothing -> pure $ BotAction [] s
+        Just i -> _ $ runBot bot i s
+    Just StartSession -> _wb
+    Just (EndSession n) -> _wc
+
 parseSessionInfo :: Parser i -> Parser (SessionInput i)
 parseSessionInfo p = do
   keyword <- New <$ "new" <|> Use <$ "use" <|> End <$ "end"
@@ -92,7 +108,7 @@ simplifySessionBot
   => (o -> T.Text)
   -> Parser i
   -> Bot m s (SessionInput i) (SessionOutput o)
-  -> TextBot m s
+  -> Bot m s T.Text [T.Text]
 simplifySessionBot tshow p (Bot bot) = Bot $ \i s -> do
   case to i of
     Left  _  -> pure $ BotAction [] s
