@@ -12,6 +12,7 @@ import qualified Data.Map.Strict               as Map
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T
 import           Network.Matrix.Client
+import qualified Control.Arrow as Arrow
 
 --------------------------------------------------------------------------------
 -- Room Awareness
@@ -50,25 +51,25 @@ freshSessionKey state = case Map.lookupMax state of
 data SessionInput i = InteractWithSession Int i | StartSession | EndSession Int
 data SessionOutput o = SessionOutput Int o | SessionStarted Int | SessionEnded Int | InvalidSession Int
 
--- | Transform a 'Bot' into a 'Sessionized' 'Bot'. 
+-- | Transform a 'Bot' into a 'Sessionized' 'Bot'.
 sessionize
   :: Monad m
   => s
   -> Bot m s i o
   -> Bot m (SessionState s) (SessionInput i) (SessionOutput o)
-sessionize defaultState (Bot bot) = Bot $ \si (SessionState s) -> case si of
+sessionize defaultState (Bot bot) = Bot $ \(SessionState s) si -> case si of
   StartSession -> do
     let k = freshSessionKey s
-    pure $ BotAction (SessionStarted k)
-                     (SessionState $ Map.insert k defaultState s)
+    pure $ (,) (SessionStarted k)
+               (SessionState $ Map.insert k defaultState s)
   EndSession k -> do
-    pure $ BotAction (SessionEnded k) (SessionState $ Map.delete k s)
+    pure $ (,) (SessionEnded k) (SessionState $ Map.delete k s)
   InteractWithSession k i -> case Map.lookup k s of
-    Nothing -> pure $ BotAction (InvalidSession k) (SessionState s)
+    Nothing -> pure $ (,) (InvalidSession k) (SessionState s)
     Just s' -> do
-      BotAction {..} <- bot i s'
-      pure $ BotAction (SessionOutput k responses)
-                       (SessionState $ Map.insert k nextState s)
+      (responses, nextState) <- bot s' i
+      pure $ (,) (SessionOutput k responses)
+                 (SessionState $ Map.insert k nextState s)
 
 data Nue = New | Use | End
 
@@ -95,10 +96,10 @@ simplifySessionBot
   -> Parser i
   -> Bot m s (SessionInput i) (SessionOutput o)
   -> TextBot m s
-simplifySessionBot tshow p (Bot bot) = Bot $ \i s -> do
+simplifySessionBot tshow p (Bot bot) = Bot $ \s i -> do
   case to i of
-    Left  _  -> pure $ BotAction [] s
-    Right si -> fmap (fmap from) $ bot si s
+    Left  _  -> pure $ (,) [] s
+    Right si -> fmap (Arrow.first from)  $ bot s si
  where
   to :: T.Text -> Either T.Text (SessionInput i)
   to = fmap (first T.pack) $ parseOnly $ parseSessionInfo p

@@ -1,21 +1,23 @@
 module CofreeBot.Bot.Behaviors.CoinFlip where
 
 import           CofreeBot.Bot
+import           Control.Monad.Reader
 import           Data.Attoparsec.Text
 import           Data.Bifunctor                 ( bimap )
+import           Data.Profunctor
 import qualified Data.Text                     as T
 import           System.Random
 
 coinFlipBot :: Bot IO () () Bool
-coinFlipBot = Bot $ \_ s -> do
-  gen <- newStdGen
-  let (result, _) = random @Bool gen
-  pure $ BotAction result s
+coinFlipBot = do
+  randomIO
 
 simplifyCoinFlipBot :: forall s . Bot IO s () Bool -> TextBot IO s
-simplifyCoinFlipBot (Bot bot) = Bot $ \i s -> case to i of
-  Left  _ -> pure $ BotAction [] s
-  Right _ -> fmap (fmap from) $ bot () s
+simplifyCoinFlipBot b = do
+  t <- ask
+  case to t of
+    Left  _ -> pure []
+    Right _ -> dimap (const ()) from $ b
  where
   to :: T.Text -> Either T.Text ()
   to = fmap (bimap T.pack id) $ parseOnly parseCoinFlipCommand
