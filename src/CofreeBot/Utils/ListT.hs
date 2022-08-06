@@ -36,10 +36,9 @@ emptyListT = ListT $ pure NilF
 
 consListT :: Applicative m => a -> ListT m a -> ListT m a
 consListT a = \case
-  ListT ml -> ListT $ ml <&> \l ->
-    case l of
-      NilF -> ConsF a emptyListT
-      ConsF x xs -> ConsF a $ ListT $ pure $ ConsF x xs
+  ListT ml -> ListT $ ml <&> \case
+    NilF -> ConsF a emptyListT
+    ConsF x xs -> ConsF a $ ListT $ pure $ ConsF x xs
 
 joinListT :: Monad m => ListT m (ListT m a) -> ListT m a
 joinListT (ListT ma) = ListT $ do
