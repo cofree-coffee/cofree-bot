@@ -64,7 +64,7 @@ instance Monad m => Cat.Category (Bot m s) where
 
 
 instance Monad m => Arrow.Arrow (Bot m s) where
-  arr f = rmap f (Cat.id)
+  arr f = rmap f Cat.id
   first = first'
 
 instance Functor f => Profunctor (Bot f s) where
@@ -142,7 +142,7 @@ emptyBot = pureStatelessBot $ const mempty
 type MatrixBot m s = Bot m s (RoomID, Event) [(RoomID, Event)]
 
 readFileMaybe :: String -> IO (Maybe T.Text)
-readFileMaybe path = (fmap Just $ T.readFile path)
+readFileMaybe path = fmap Just (T.readFile path)
   `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
 
 runMatrixBot
@@ -180,7 +180,7 @@ runMatrixBot session cache bot s = do
     liftIO $ writeIORef ref nextState
     gen <- newStdGen
     let txnIds = (TxnID . T.pack . show <$> randoms @Int gen)
-    liftIO $ sequence_ $ zipWith (uncurry $ sendMessage session)
+    liftIO $ zipWithM_ (uncurry $ sendMessage session)
                                  responses
                                  txnIds
 
@@ -194,7 +194,7 @@ liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
   fmap (Arrow.first (fmap (\t -> (rid, mkMsg t)))) $ bot s (viewBody i)
 
 viewBody :: Event -> T.Text
-viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+viewBody = view (_EventRoomMessage . _RoomMessageText . _mtBody)
 
 mkMsg :: T.Text -> Event
 mkMsg msg =
