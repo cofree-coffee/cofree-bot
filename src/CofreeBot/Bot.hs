@@ -110,7 +110,6 @@ instance Monad m => Cat.Category (Bot m s) where
     put s''
     pure c
 
-
 instance Monad m => Arrow.Arrow (Bot m s) where
   arr f = rmap f Cat.id
   first = first'
