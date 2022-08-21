@@ -198,7 +198,7 @@ readFileMaybe :: String -> IO (Maybe T.Text)
 readFileMaybe path = fmap Just (T.readFile path)
   `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
 
-matrix :: (MonadError MatrixError m, MonadIO m) => ClientSession -> FilePath -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
+matrix :: forall m. (MonadError MatrixError m, MonadIO m) => ClientSession -> FilePath -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
 matrix session cache = do
   -- Setup cache
   liftIO $ createDirectoryIfMissing True cache
@@ -212,6 +212,7 @@ matrix session cache = do
   go filterId since
 
   where
+    go :: FilterID -> Maybe T.Text -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
     go filterId since = do
       -- Get conversation events
       syncResult <- liftMatrixIO $ sync session (Just filterId) since (Just Online) (Just 1000)
