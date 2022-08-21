@@ -6,16 +6,16 @@ import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
 import           Control.Monad
 import           Data.Profunctor
-import qualified Data.Text                     as T
+import           Data.Profunctor.Traversing
+import qualified Data.Text                      as T
 import           GHC.Conc                       ( threadDelay )
 import           Network.Matrix.Client
-import qualified Options.Applicative           as Opt
+import qualified Options.Applicative            as Opt
 import           OptionsParser
 import           System.Environment.XDG.BaseDir ( getUserCacheDir )
 import           System.Process.Typed
 import           Control.Monad.Except (ExceptT, runExceptT)
-import Control.Monad.IO.Class (liftIO)
-import Data.Profunctor.Traversing
+import           Control.Monad.IO.Class (liftIO)
 
 main :: IO ()
 main = do

@@ -1,7 +1,6 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-{-# HLINT ignore "Use <$>" #-}
-{-# LANGUAGE RankNTypes #-}
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
