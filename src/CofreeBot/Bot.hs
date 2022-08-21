@@ -87,8 +87,18 @@ fixBot (Bot b) = go
 
 type Env :: KBot
 newtype Env m s o i = Env { runEnv :: s -> (i, o -> m s) }
+  deriving (Functor)
+
+instance Profunctor (Env m s)
+  where
+  dimap f g (Env env) = Env $ fmap (bimap g (lmap f)) env
 
 newtype Server m o i = Server { runServer :: (i, o -> m (Server m o i)) }
+  deriving (Functor)
+
+instance Functor m => Profunctor (Server m)
+  where
+  dimap f g (Server (i, serve)) = Server $ (g i, dimap f (fmap (dimap f g)) serve)
 
 fixEnv :: Functor m => Env m s o i -> s -> Server m o i
 fixEnv (Env b) = go
