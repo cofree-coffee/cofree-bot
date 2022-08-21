@@ -57,12 +57,12 @@ cliMain = withProcessWait_ ghciConfig $ \process -> do
   repl' <- repl
   loop $ annihilate (flip fixBot mempty $ simplifyMatrixBot $ bot process) repl'
 
-absorbError :: Show e => ExceptT e IO a -> IO a
-absorbError = runExceptT >=> either (fail . show) pure
+unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
+unsafeCrashInIO = runExceptT >=> either (fail . show) pure
 
 matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  matrix' <- absorbError $ matrix session xdgCache
-  absorbError $ loop $ annihilate (fmap join $ traverse' $ flip fixBot mempty $ hoistBot liftIO $ bot process) matrix'
+  matrix' <- unsafeCrashInIO $ matrix session xdgCache
+  unsafeCrashInIO $ loop $ annihilate (fmap join $ traverse' $ flip fixBot mempty $ hoistBot liftIO $ bot process) matrix'
