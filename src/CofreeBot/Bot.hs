@@ -47,12 +47,17 @@ newtype Fix f = Fix { runFix :: f (Fix f) }
 -- | A 'Bot' maps from some input type 'i' and a state 's' to an
 -- output type 'o' and a state 's'
 type Bot :: KBot
-
 newtype Bot m s i o = Bot { runBot :: s -> i -> m (o, s) }
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
   via StateT s (ReaderT i m)
 
+-- | The fixed point of a 'Bot'.
+-- 
+-- Notice that the @s@ parameter has disapeared. This allows us to
+-- hide the state threading when interpreting a 'Bot' with some 'Env'.
+--
+-- See 'annihilate' for how this interaction occurs in practice.
 newtype Behavior m i o = Behavior { runBehavior :: i -> m (o, (Behavior m i o)) }
 
 instance Functor m => Functor (Behavior m i)
@@ -80,11 +85,29 @@ instance Monad m => Traversing (Behavior m)
     $ flip runStateT b
     $ traverse (\i -> StateT $ \(Behavior b') -> fmap (\(responses, nextState) -> (responses, nextState)) $ b' i) is
 
-fixBot :: Functor m => Bot m s i o -> s -> Behavior m i o
+-- | Generate the fixed point of @Bot m s i o@ by recursively
+-- construction an @s -> Behavior m i o@ action and tupling it with
+-- the output @o@ from its parent action.
+fixBot :: forall m s i o. Functor m => Bot m s i o -> s -> Behavior m i o
 fixBot (Bot b) = go
   where
+  go :: s -> Behavior m i o
   go s = Behavior $ \i -> second go <$> b s i
 
+-- | The dual to a 'Bot'.
+-- Given the state @s@, 'Env' produces an input for a 'Bot' and given
+-- the 'Bot's output @o@ will produce an updated state @s@.
+--
+-- Given a @Bot m s i o@, an @Env m s o i@ and an initial state @s@ we
+-- can thus carry on a dialog:
+--
+-- 1. Initialize the 'Env' with the state @s@ to produce an input @i@
+-- for the 'Bot'.
+-- 2. Feeding @i@ and @s@ into the 'Bot' to produce a new state @s'@
+-- and an output @o@.
+-- 3. Use the new state @s'@ to produce the next bot input @i'@ and the
+-- prior 'Bot' output @o@ to produce the new state @s'@.
+-- 4. Repeat from step 2 with @s'@ and @i'@.
 type Env :: KBot
 newtype Env m s o i = Env { runEnv :: s -> (i, o -> m s) }
   deriving (Functor)
@@ -93,6 +116,10 @@ instance Profunctor (Env m s)
   where
   dimap f g (Env env) = Env $ fmap (bimap g (lmap f)) env
 
+-- | The fixed point of an 'Env'. Like in 'Behavior' we have factored
+-- out the @s@ parameter to hide the state threading.
+--
+-- See 'annihilate' for how this interaction occurs in practice.
 newtype Server m o i = Server { runServer :: (i, o -> m (Server m o i)) }
   deriving (Functor)
 
@@ -100,9 +127,13 @@ instance Functor m => Profunctor (Server m)
   where
   dimap f g (Server (i, serve)) = Server $ (g i, dimap f (fmap (dimap f g)) serve)
 
-fixEnv :: Functor m => Env m s o i -> s -> Server m o i
+-- | Generate the fixed point of @Env m s o i@ by recursively
+-- construction an @s -> Server m o i@ action and tupling it with
+-- the output @i@ from its parent action.
+fixEnv :: forall m s o i. Functor m => Env m s o i -> s -> Server m o i
 fixEnv (Env b) = go
   where
+  go :: s -> Server m o i
   go s = Server $ fmap (fmap (fmap go)) $ b s
 
 --------------------------------------------------------------------------------
@@ -139,7 +170,8 @@ instance Applicative f => Choice (Bot f s) where
 -- Operations
 --------------------------------------------------------------------------------
 
--- | 'Bot' is an invariant functor on 's' but we cannot write an instance in Haskell.
+-- | 'Bot' is an invariant functor on @s@ but our types don't quite
+-- fit the @Invariant@ typeclass.
 invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
 
@@ -148,6 +180,9 @@ liftEffect m = Bot $ \s _ -> do
   o <- m
   pure (o, s)
 
+-- | Given the sum of two bots, produce a bot who receives the sum of
+-- the inputs to the input bots and produces a wedge product of their
+-- outputs.
 nudge
   :: Applicative m
   => Bot m s i o \/ Bot m s i' o'
@@ -162,12 +197,18 @@ nudge = either
     (fmap (fmap (Arrow.first (Just . Right))) $ b s)
   )
 
+-- | Nudge a bot into the left side of a bot with a summed input and
+-- wedge product output.
 nudgeLeft :: Applicative m => Bot m s i o -> Bot m s (i \/ i') (o \?/ o')
 nudgeLeft = nudge . Left
 
+-- | Nudge a bot into the right side of a bot with a summed input and
+-- wedge product output.
 nudgeRight :: Applicative m => Bot m s i' o' -> Bot m s (i \/ i') (o \?/ o')
 nudgeRight = nudge . Right
 
+-- | Tuple the states and outputs of two bots who operate on the same
+-- input @i@.
 infixr /\
 (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
 (/\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
@@ -175,6 +216,12 @@ infixr /\
   (nextState', responses') <- b2 s' i
   pure $ (,) (nextState, nextState') (responses, responses')
 
+-- | Sum the inputs and outputs of two bots who operate on the same
+-- state @s@.
+--
+-- This allows us to combine the behaviors of two bots such that only
+-- one or the other bot will be executed depending on the input
+-- provided.
 infixr \/
 (\/)
   :: Functor m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
@@ -254,6 +301,8 @@ matrix session cache = do
         -- Do it again
         go filterId (Just newSince)
 
+-- | Map the input and output of a 'MatrixBot' to allow for simple
+-- 'T.Text' I/O.
 simplifyMatrixBot :: Monad m => MatrixBot m s -> TextBot m s
 simplifyMatrixBot (Bot bot) = Bot $ \s i -> do
   (responses, nextState) <- bot s (RoomID mempty, mkMsg i)
@@ -285,18 +334,20 @@ repl = do
   hFlush stdout
   (T.pack -> input) <- getLine
 
-  return $ Server $ (input,) $ \outputs -> do
+  pure $ Server $ (input,) $ \outputs -> do
     -- Print the bot's responses
     traverse_ (putStrLn . T.unpack . (">>> " <>)) outputs
 
     -- Do it again
     repl
 
+-- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
+-- monadic action @m@.
 annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
-annihilate (Server (i, b)) (Behavior a) = Fix $ do
-  (o, a') <- a i
-  b' <- b o
-  return $ annihilate b' a'
+annihilate (Server (i, server)) (Behavior botBehaviorbot) = Fix $ do
+  (o, botBehavior') <- botBehaviorbot i
+  server' <- server o
+  pure $ annihilate server' botBehavior'
 
 loop :: Monad m => Fix m -> m x
 loop (Fix x) = x >>= loop
