@@ -55,7 +55,11 @@ cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   repl' <- repl
-  loop $ annihilate (flip fixBot mempty $ simplifyMatrixBot $ bot process) repl'
+  loop
+    $ annihilate repl'
+    $ flip fixBot mempty
+    $ simplifyMatrixBot
+    $ bot process
 
 unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
@@ -65,4 +69,11 @@ matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   matrix' <- unsafeCrashInIO $ matrix session xdgCache
-  unsafeCrashInIO $ loop $ annihilate (fmap join $ traverse' $ flip fixBot mempty $ hoistBot liftIO $ bot process) matrix'
+  unsafeCrashInIO
+    $ loop
+    $ annihilate matrix'
+    $ fmap join
+    $ traverse'
+    $ flip fixBot mempty
+    $ hoistBot liftIO
+    $ bot process

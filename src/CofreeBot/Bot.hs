@@ -282,11 +282,11 @@ repl = do
     -- Do it again
     repl
 
-annihilate :: Monad m => Behavior m i o -> Server m o i -> Fix m
-annihilate (Behavior a) (Server (i, b)) = Fix $ do
+annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
+annihilate (Server (i, b)) (Behavior a) = Fix $ do
   (o, a') <- a i
   b' <- b o
-  return $ annihilate a' b'
+  return $ annihilate b' a'
 
 loop :: Monad m => Fix m -> m x
 loop (Fix x) = x >>= loop
