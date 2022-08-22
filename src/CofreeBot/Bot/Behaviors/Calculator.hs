@@ -1,4 +1,10 @@
-module CofreeBot.Bot.Behaviors.Calculator where
+module CofreeBot.Bot.Behaviors.Calculator
+  ( calculatorBot
+  , simplifyCalculatorBot
+  , printCalcOutput
+  ) where
+
+--------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
@@ -8,6 +14,8 @@ import           Control.Monad.State
 import           Data.Functor
 import           Data.Profunctor
 import qualified Data.Text                     as T
+
+--------------------------------------------------------------------------------
 
 type CalculatorOutput = Either CalcError [CalcResp]
 type CalculatorBot = Bot IO CalcState Program CalculatorOutput

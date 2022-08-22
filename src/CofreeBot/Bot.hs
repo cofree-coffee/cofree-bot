@@ -80,6 +80,7 @@ newtype Bot m s i o = Bot { runBot :: s -> i -> m (o, s) }
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
   via StateT s (ReaderT i m)
+
 instance Functor f => Profunctor (Bot f s) where
   dimap f g (Bot bot) = do
     Bot $ \s i -> fmap (Arrow.first g) $ bot s (f i)

@@ -1,4 +1,9 @@
-module CofreeBot.Bot.Behaviors.Updog where
+module CofreeBot.Bot.Behaviors.Updog
+  ( updogSimpleBot
+  , updogMatrixBot
+  ) where
+
+--------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
 import           Control.Applicative            ( empty
@@ -7,6 +12,8 @@ import           Control.Applicative            ( empty
 import           Data.String
 import           Data.Text                      ( Text )
 import qualified Data.Text                     as T
+
+--------------------------------------------------------------------------------
 
 newtype Matcher = Matcher
   { runMatcher :: Text -> Bool
@@ -36,6 +43,8 @@ runMatches ms = flip foldMap ms $ \m t -> case runMatcher (mMatch m) t of
 
 what :: Matcher
 what = "what" ||| "What" ||| "WHAT"
+
+--------------------------------------------------------------------------------
 
 updogSimpleBot :: Applicative m => Bot m s Text [Text]
 updogSimpleBot = pureStatelessBot $ runMatches

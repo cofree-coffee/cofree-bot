@@ -1,4 +1,8 @@
-module CofreeBot.Bot.Behaviors.Jitsi where
+module CofreeBot.Bot.Behaviors.Jitsi
+  ( jitsiBot
+  ) where
+
+--------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Jitsi.Dictionary
@@ -6,6 +10,8 @@ import           Data.Profunctor
 import qualified Data.Text                     as T
 import qualified Data.Vector                   as V
 import           System.Random
+
+--------------------------------------------------------------------------------
 
 pickRandomElement :: V.Vector a -> IO a
 pickRandomElement vs = do
