@@ -56,9 +56,9 @@ executable cofree-bot
   hs-source-dirs: app
   build-depends:
     , cofree-bot
+    , mtl
     , optparse-applicative
     , xdg-basedir
-    , mtl
 
   other-modules:  OptionsParser
 
@@ -89,6 +89,7 @@ library
     , aeson
     , attoparsec
     , containers
+    , data-fix
     , directory
     , hint
     , http-client
