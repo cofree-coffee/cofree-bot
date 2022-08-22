@@ -1,6 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 module CofreeBot.Bot where
 
 import           CofreeBot.Utils
@@ -108,23 +107,23 @@ fixBot (Bot b) = go
 -- prior 'Bot' output @o@ to produce the new state @s'@.
 -- 4. Repeat from step 2 with @s'@ and @i'@.
 type Env :: KBot
-newtype Env m s o i = Env { runEnv :: s -> (i, o -> m s) }
+newtype Env m s o i = Env { runEnv :: s -> m (i, o -> s) }
   deriving (Functor)
 
-instance Profunctor (Env m s)
+instance Functor m => Profunctor (Env m s)
   where
-  dimap f g (Env env) = Env $ fmap (bimap g (lmap f)) env
+  dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap f))) env
 
 -- | The fixed point of an 'Env'. Like in 'Behavior' we have factored
 -- out the @s@ parameter to hide the state threading.
 --
 -- See 'annihilate' for how this interaction occurs in practice.
-newtype Server m o i = Server { runServer :: (i, o -> m (Server m o i)) }
+newtype Server m o i = Server { runServer :: m (i, o -> Server m o i) }
   deriving (Functor)
 
 instance Functor m => Profunctor (Server m)
   where
-  dimap f g (Server (i, serve)) = Server $ (g i, dimap f (fmap (dimap f g)) serve)
+  dimap f g (Server serve) = Server $ fmap (bimap g (dimap f (dimap f g))) serve
 
 -- | Generate the fixed point of @Env m s o i@ by recursively
 -- construction an @s -> Server m o i@ action and tupling it with
@@ -254,8 +253,8 @@ readFileMaybe :: String -> IO (Maybe T.Text)
 readFileMaybe path = fmap Just (T.readFile path)
   `catch` \e -> if isDoesNotExistError e then pure Nothing else throwIO e
 
-matrix :: forall m. (MonadError MatrixError m, MonadIO m) => ClientSession -> FilePath -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
-matrix session cache = do
+matrix :: forall m. (MonadError MatrixError m, MonadIO m) => ClientSession -> FilePath -> Server m [(RoomID, Event)] [(RoomID, Event)]
+matrix session cache = Server $ do
   -- Setup cache
   liftIO $ createDirectoryIfMissing True cache
   since <- liftIO $ readFileMaybe $ cache <> "/since_file"
@@ -265,11 +264,11 @@ matrix session cache = do
   filterId <- liftMatrixIO $ createFilter session userId messageFilter
 
   -- Start looping
-  go filterId since
+  runServer $ go filterId since
 
   where
-    go :: FilterID -> Maybe T.Text -> m (Server m [(RoomID, Event)] [(RoomID, Event)])
-    go filterId since = do
+    go :: FilterID -> Maybe T.Text -> Server m [(RoomID, Event)] [(RoomID, Event)]
+    go filterId since = Server $ do
       -- Get conversation events
       syncResult <- liftMatrixIO $ sync session (Just filterId) since (Just Online) (Just 1000)
 
@@ -288,7 +287,7 @@ matrix session cache = do
             (\rid es -> fmap ((RoomID rid, ) . view _reContent) es)
             roomEvents
 
-      return $ Server $ (events,) $ \outputs -> do
+      pure $ (events,) $ \outputs -> Server $ do
         -- Send the bot's responses
         gen <- newStdGen
         let txnIds = TxnID . T.pack . show <$> randoms @Int gen
@@ -298,7 +297,7 @@ matrix session cache = do
         liftIO $ writeFile (cache <> "/since_file") (T.unpack newSince)
 
         -- Do it again
-        go filterId (Just newSince)
+        runServer $ go filterId (Just newSince)
 
 -- | Map the input and output of a 'MatrixBot' to allow for simple
 -- 'T.Text' I/O.
@@ -326,26 +325,27 @@ mkMsg msg =
 -- 'SimpleBot' is useful for locally debugging another bot.
 type TextBot m s = Bot m s T.Text [T.Text]
 
-repl :: IO (Server IO [T.Text] T.Text)
-repl = do
+repl :: Server IO [T.Text] T.Text
+repl = Server $ do
   -- Read the user's input
   putStr "<<< "
   hFlush stdout
   (T.pack -> input) <- getLine
 
-  pure $ Server $ (input,) $ \outputs -> do
+  pure $ (input,) $ \outputs -> Server $ do
     -- Print the bot's responses
     traverse_ (putStrLn . T.unpack . (">>> " <>)) outputs
 
     -- Do it again
-    repl
+    runServer repl
 
 -- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
 -- monadic action @m@.
 annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
-annihilate (Server (i, server)) (Behavior botBehaviorbot) = Fix $ do
+annihilate (Server server) (Behavior botBehaviorbot) = Fix $ do
+  (i, nextServer) <- server
   (o, botBehavior') <- botBehaviorbot i
-  server' <- server o
+  let server' = nextServer o
   pure $ annihilate server' botBehavior'
 
 loop :: Monad m => Fix m -> m x

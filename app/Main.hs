@@ -54,9 +54,8 @@ cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  repl' <- repl
   loop
-    $ annihilate repl'
+    $ annihilate repl
     $ flip fixBot mempty
     $ simplifyMatrixBot
     $ bot process
@@ -68,10 +67,9 @@ matrixMain :: ClientSession  -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  matrix' <- unsafeCrashInIO $ matrix session xdgCache
   unsafeCrashInIO
     $ loop
-    $ annihilate matrix'
+    $ annihilate (matrix session xdgCache)
     $ fmap join
     $ traverse'
     $ flip fixBot mempty
