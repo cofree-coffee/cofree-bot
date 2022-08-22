@@ -6,13 +6,13 @@ module CofreeBot.Bot.Context where
 
 import           CofreeBot.Bot
 import           Control.Applicative
+import qualified Control.Arrow                 as Arrow
 import           Data.Attoparsec.Text
-import           Data.Bifunctor                 ( Bifunctor (first) )
+import           Data.Bifunctor                 ( Bifunctor(first) )
 import qualified Data.Map.Strict               as Map
 import           Data.Profunctor                ( second' )
 import qualified Data.Text                     as T
 import           Network.Matrix.Client
-import qualified Control.Arrow as Arrow
 
 --------------------------------------------------------------------------------
 -- Room Awareness
@@ -60,8 +60,7 @@ sessionize
 sessionize defaultState (Bot bot) = Bot $ \(SessionState s) si -> case si of
   StartSession -> do
     let k = freshSessionKey s
-    pure $ (,) (SessionStarted k)
-               (SessionState $ Map.insert k defaultState s)
+    pure $ (,) (SessionStarted k) (SessionState $ Map.insert k defaultState s)
   EndSession k -> do
     pure $ (,) (SessionEnded k) (SessionState $ Map.delete k s)
   InteractWithSession k i -> case Map.lookup k s of
@@ -99,7 +98,7 @@ simplifySessionBot
 simplifySessionBot tshow p (Bot bot) = Bot $ \s i -> do
   case to i of
     Left  _  -> pure $ (,) [] s
-    Right si -> fmap (Arrow.first from)  $ bot s si
+    Right si -> fmap (Arrow.first from) $ bot s si
  where
   to :: T.Text -> Either T.Text (SessionInput i)
   to = fmap (first T.pack) $ parseOnly $ parseSessionInfo p
