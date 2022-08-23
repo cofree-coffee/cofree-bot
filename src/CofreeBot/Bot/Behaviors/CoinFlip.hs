@@ -1,5 +1,7 @@
 module CofreeBot.Bot.Behaviors.CoinFlip where
 
+--------------------------------------------------------------------------------
+
 import           CofreeBot.Bot
 import           Control.Monad.Reader
 import           Data.Attoparsec.Text
@@ -7,6 +9,8 @@ import           Data.Bifunctor                 ( bimap )
 import           Data.Profunctor
 import qualified Data.Text                     as T
 import           System.Random
+
+--------------------------------------------------------------------------------
 
 coinFlipBot :: Bot IO () () Bool
 coinFlipBot = do

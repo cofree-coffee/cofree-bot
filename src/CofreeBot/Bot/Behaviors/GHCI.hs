@@ -5,6 +5,8 @@ module CofreeBot.Bot.Behaviors.GHCI
   , hGetOutput
   ) where
 
+--------------------------------------------------------------------------------
+
 import           CofreeBot.Bot
 import           CofreeBot.Utils
 import           Control.Monad
@@ -16,6 +18,8 @@ import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
+
+--------------------------------------------------------------------------------
 
 type GhciBot = Bot IO () T.Text [T.Text]
 

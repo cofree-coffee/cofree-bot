@@ -1,4 +1,9 @@
-module CofreeBot.Bot.Behaviors.Magic8Ball where
+module CofreeBot.Bot.Behaviors.Magic8Ball
+  ( magic8BallBot
+  , simplifyMagic8BallBot
+  ) where
+
+--------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
 import           Control.Monad.Reader
@@ -7,6 +12,8 @@ import           Data.Bifunctor                 ( bimap )
 import           Data.Profunctor
 import qualified Data.Text                     as T
 import           System.Random
+
+--------------------------------------------------------------------------------
 
 magic8BallBot :: Bot IO () () Int
 magic8BallBot = do

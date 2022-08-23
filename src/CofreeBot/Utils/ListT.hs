@@ -4,10 +4,10 @@
 
 module CofreeBot.Utils.ListT where
 
-import Data.Bifunctor (Bifunctor(..))
-import Data.Foldable (foldr')
-import Control.Monad (ap)
-import Data.Functor ((<&>))
+import           Control.Monad                  ( ap )
+import           Data.Bifunctor                 ( Bifunctor(..) )
+import           Data.Foldable                  ( foldr' )
+import           Data.Functor                   ( (<&>) )
 
 data ListF a r = NilF | ConsF a r
   deriving Functor
@@ -15,7 +15,7 @@ data ListF a r = NilF | ConsF a r
 instance Bifunctor ListF
   where
   bimap f g = \case
-    NilF -> NilF
+    NilF      -> NilF
     ConsF a r -> ConsF (f a) (g r)
 
 newtype ListT m a = ListT
@@ -28,7 +28,7 @@ instance Functor m => Functor (ListT m)
 
 instance Monad m => Applicative (ListT m)
   where
-  pure = return
+  pure  = return
   (<*>) = ap
 
 emptyListT :: Applicative m => ListT m a
@@ -37,18 +37,18 @@ emptyListT = ListT $ pure NilF
 consListT :: Applicative m => a -> ListT m a -> ListT m a
 consListT a = \case
   ListT ml -> ListT $ ml <&> \case
-    NilF -> ConsF a emptyListT
+    NilF       -> ConsF a emptyListT
     ConsF x xs -> ConsF a $ ListT $ pure $ ConsF x xs
 
 joinListT :: Monad m => ListT m (ListT m a) -> ListT m a
 joinListT (ListT ma) = ListT $ do
   fma <- ma
   case fma of
-    NilF -> return NilF
+    NilF                  -> return NilF
     ListT mxs `ConsF` xss -> do
       xs <- mxs
       case xs of
-        NilF -> runListT $ joinListT xss
+        NilF          -> runListT $ joinListT xss
         x `ConsF` xs' -> runListT $ consListT x $ joinListT $ consListT xs' xss
 
 instance Monad m => Monad (ListT m)
