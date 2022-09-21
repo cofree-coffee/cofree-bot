@@ -6,9 +6,7 @@ module CofreeBot.Bot.Behaviors.Jitsi
 
 import           CofreeBot.Bot
 import           CofreeBot.Bot.Behaviors.Jitsi.Dictionary
-import           CofreeBot.Utils                ( type (/\)
-                                                , indistinct
-                                                )
+import           CofreeBot.Utils                ( indistinct )
 import           Data.Profunctor
 import qualified Data.Text                     as T
 import qualified Data.Vector                   as V
@@ -21,8 +19,8 @@ pickRandomElement vs = do
   i <- randomRIO (0, V.length vs)
   pure $ vs V.! i
 
-jitsiBot' :: Bot IO () () T.Text
-jitsiBot' = liftEffect $ do
+jitsiBot' :: IO T.Text
+jitsiBot' = do
   adjective <- pickRandomElement adjectives
   noun      <- pickRandomElement pluralNouns
   verb      <- pickRandomElement verbs
@@ -38,4 +36,4 @@ jitsiBot =
       )
       indistinct
     $  emptyBot
-    \/ jitsiBot'
+    \/ liftEffect jitsiBot'
