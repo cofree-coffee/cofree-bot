@@ -3,7 +3,7 @@ module CofreeBot.Utils where
 import           Control.Applicative
 import           Control.Arrow                  ( (&&&) )
 import           Data.Kind
-import Data.These (These)
+import           Data.These                     ( These )
 
 -------------------------------------------------------------------------------
 -- Tensors

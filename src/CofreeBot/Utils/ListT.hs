@@ -6,7 +6,8 @@
 
 module CofreeBot.Utils.ListT
   ( -- * ListF
-    ListF(..) ,
+    ListF(..)
+  ,
 
     -- * ListT
     ListT(..)
@@ -18,16 +19,15 @@ module CofreeBot.Utils.ListT
   , fromListT
   , hoistListT
   , interleaveListT
-
   ) where
 
+import           Control.Applicative
 import           Control.Monad.Except
 import           Control.Monad.Trans
 import           Data.Bifunctor                 ( Bifunctor(..) )
 import           Data.Foldable
 import           Data.Functor                   ( (<&>) )
-import Data.These
-import Control.Applicative
+import           Data.These
 
 data ListF a r = NilF | ConsF a r
   deriving (Functor)
@@ -57,10 +57,11 @@ instance Monad m => Alternative (ListT m) where
     x <- m
     y <- n
     pure $ case (x, y) of
-      (NilF, NilF) -> NilF 
-      (ConsF x' xs, NilF) -> ConsF x' xs
-      (NilF, ConsF y' ys) -> ConsF y' ys
-      (ConsF x' xs, ConsF y' ys) -> ConsF x' (ListT $ pure $ ConsF y' (xs <|> ys))
+      (NilF       , NilF       ) -> NilF
+      (ConsF x' xs, NilF       ) -> ConsF x' xs
+      (NilF       , ConsF y' ys) -> ConsF y' ys
+      (ConsF x' xs, ConsF y' ys) ->
+        ConsF x' (ListT $ pure $ ConsF y' (xs <|> ys))
 
 instance MonadTrans ListT
   where
@@ -117,15 +118,15 @@ hoistListT f = ListT . fmap (fmap (hoistListT f)) . f . runListT
 
 fromListT :: Monad m => ListT m a -> m [a]
 fromListT (ListT m) = m >>= \case
-   NilF -> pure []
-   ConsF a xs -> fmap (a :) $ fromListT xs
+  NilF       -> pure []
+  ConsF a xs -> fmap (a :) $ fromListT xs
 
 interleaveListT :: Monad m => ListT m a -> ListT m b -> ListT m (These a b)
 interleaveListT (ListT m) (ListT n) = ListT $ do
   x <- m
   y <- n
   pure $ case (x, y) of
-    (NilF, NilF) -> NilF 
-    (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
-    (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
+    (NilF       , NilF       ) -> NilF
+    (ConsF x' xs, NilF       ) -> ConsF (This x') (fmap This xs)
+    (NilF       , ConsF y' ys) -> ConsF (That y') (fmap That ys)
     (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (interleaveListT xs ys)
