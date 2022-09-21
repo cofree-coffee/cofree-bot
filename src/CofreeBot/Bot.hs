@@ -42,6 +42,7 @@ module CofreeBot.Bot
 import           CofreeBot.Utils
 import           CofreeBot.Utils.ListT
 import qualified Control.Arrow                 as Arrow
+import           Control.Arrow                  ( (&&&) )
 import           Control.Exception              ( catch
                                                 , throwIO
                                                 )
@@ -151,12 +152,12 @@ fixBot (Bot b) = go
 -- prior 'Bot' output @o@ to produce the new state @s'@.
 -- 4. Repeat from step 2 with @s'@ and @i'@.
 type Env :: KBot
-newtype Env m s o i = Env { runEnv :: s -> ListT m (i, o -> s) }
+newtype Env m s o i = Env { runEnv :: s -> m (i, [o] -> s) }
   deriving (Functor)
 
 instance Functor m => Profunctor (Env m s)
   where
-  dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap f))) env
+  dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap (fmap f)))) env
 
 --------------------------------------------------------------------------------
 
@@ -164,13 +165,13 @@ instance Functor m => Profunctor (Env m s)
 -- out the @s@ parameter to hide the state threading.
 --
 -- See 'annihilate' for how this interaction occurs in practice.
-newtype Server m o i = Server { runServer :: ListT m (i, o -> Server m o i) }
+newtype Server m o i = Server { runServer :: m (i, [o] -> Server m o i) }
   deriving (Functor)
 
 instance Functor m => Profunctor (Server m)
   where
   dimap f g (Server serve) =
-    Server $ fmap (bimap g (dimap f (dimap f g))) serve
+    Server $ fmap (bimap g (dimap (fmap f) (dimap f g))) serve
 
 -- | Generate the fixed point of @Env m s o i@ by recursively
 -- construction an @s -> Server m o i@ action and tupling it with
@@ -260,14 +261,13 @@ infixr \/
 pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
 
-mapMaybeBot
-  :: (Applicative m, Monoid o) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
-mapMaybeBot f (Bot bot) =
-  Bot $ \s i -> maybe (singletonListT (mempty, s)) (bot s) (f i)
+mapMaybeBot :: Applicative m => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
+mapMaybeBot f (Bot bot) = Bot $ \s i -> maybe emptyListT (bot s) (f i)
 
 -- | Lift the @Monoid o@ unit value into @Bot m s i o@.
-emptyBot :: (Monoid o, Monad m) => Bot m s i o
-emptyBot = pureStatelessBot $ const mempty
+-- TODO: Remove monoid and produce an empty listT Revist all 'Monoid o' decisions.
+emptyBot :: Monad m => Bot m s i o
+emptyBot = Bot $ \_ _ -> emptyListT
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @Bot m s i o@ to @Bot n s i o@
@@ -297,7 +297,7 @@ matrix
    . (MonadError MatrixError m, MonadIO m)
   => ClientSession
   -> FilePath
-  -> Server m [(RoomID, Event)] [(RoomID, Event)]
+  -> Server m (RoomID, Event) [(RoomID, Event)]
 matrix session cache = Server $ do
   -- Setup cache
   liftIO $ createDirectoryIfMissing True cache
@@ -311,8 +311,7 @@ matrix session cache = Server $ do
   runServer $ go filterId since
 
  where
-  go
-    :: FilterID -> Maybe T.Text -> Server m [(RoomID, Event)] [(RoomID, Event)]
+  go :: FilterID -> Maybe T.Text -> Server m (RoomID, Event) [(RoomID, Event)]
   go filterId since = Server $ do
     -- Get conversation events
     syncResult <- liftMatrixIO
@@ -379,22 +378,25 @@ repl = Server $ do
     hFlush stdout
   (T.pack -> input) <- liftIO getLine
 
-  pure $ (input, ) $ \output -> Server $ do
-    -- Print the bot's responses
-    liftIO $ putStrLn $ T.unpack input
-    liftIO $ putStrLn $ T.unpack $ ">>> " <> output
+  pure $ (input, ) $ \outputs -> Server $ do
+    forM_ outputs $ \output -> do
+      -- Print the bot's responses
+      liftIO $ putStrLn $ T.unpack $ ">>> " <> output
 
     -- Do it again
     runServer repl
 
 -- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
 -- monadic action @m@.
-annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix (ListT m)
-annihilate (Server server) (Behavior botBehaviorbot) = Fix $ do
-  (i, nextServer  ) <- server
-  (o, botBehavior') <- botBehaviorbot i
-  let server' = nextServer o
-  pure $ annihilate server' botBehavior'
+annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
+annihilate (Server server) b@(Behavior botBehavior) = Fix $ do
+  (i, nextServer) <- server
+  xs              <- fromListT $ botBehavior i
+  let o       = fmap fst $ xs
+      server' = nextServer o
+  pure $ annihilate server' $ case xs of
+    [] -> b
+    _  -> snd $ last xs
 
 loop :: Monad m => Fix m -> m x
 loop (Fix x) = x >>= loop

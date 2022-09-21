@@ -4,7 +4,7 @@ module Main where
 
 import           CofreeBot
 import           CofreeBot.Bot.Behaviors.Calculator.Language
-import           CofreeBot.Utils.ListT          (fromListT)
+import           CofreeBot.Utils.ListT          ( fromListT )
 import           Control.Monad
 import           Control.Monad.Except           ( ExceptT
                                                 , runExceptT
@@ -44,23 +44,20 @@ bot process =
       coinFlipBot'   = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'       = liftSimpleBot $ ghciBot process
       magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
-  in     calcBot
-     /.\ helloBot
-     /.\ coinFlipBot'
-     /.\ ghciBot'
-     /.\ magic8BallBot'
-     /.\ updogMatrixBot
-     /.\ liftSimpleBot jitsiBot
+  in  calcBot
+        /.\ coinFlipBot'
+        /.\ helloBot
+        /.\ ghciBot'
+        /.\ magic8BallBot'
+        /.\ updogMatrixBot
+        /.\ liftSimpleBot jitsiBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  void $ fromListT $ loop
-    $ annihilate repl
-    $ flip fixBot mempty
-    $ simplifyMatrixBot
-    $ bot process
+  void $ loop $ annihilate repl $ flip fixBot mempty $ simplifyMatrixBot $ bot
+    process
 
 unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
