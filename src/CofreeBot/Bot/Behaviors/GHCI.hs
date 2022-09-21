@@ -9,6 +9,7 @@ import           CofreeBot.Bot
 import           CofreeBot.Utils
 import           CofreeBot.Utils.ListT
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Control.Monad.Loops            ( whileM )
 import           Data.Attoparsec.Text          as A
 import           Data.Profunctor
@@ -17,23 +18,22 @@ import           GHC.Conc                       ( threadDelay )
 import           System.IO
 import           System.Process.Typed
 
-type GhciBot = Bot IO () T.Text T.Text
-
 hGetOutput :: Handle -> IO String
 hGetOutput handle = whileM (hReady handle) (hGetChar handle)
 
-ghciBot' :: Process Handle Handle () -> GhciBot
+ghciBot' :: Process Handle Handle () -> Bot IO () T.Text T.Text
 ghciBot' p =
   mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser)
     $ Bot
-    $ \s i -> ListT $ do
-        hPutStrLn (getStdin p) $ T.unpack i
-        hFlush (getStdin p)
-        void $ threadDelay 5e5
-        o <- hGetOutput (getStdout p)
-        pure (ConsF ((T.pack o), s) emptyListT)
+    $ \s i -> do
+        o <- liftIO $ do
+          hPutStrLn (getStdin p) $ T.unpack i
+          hFlush (getStdin p)
+          void $ threadDelay 5e5
+          hGetOutput (getStdout p)
+        pure (T.pack o, s)
 
-ghciBot :: Process Handle Handle () -> GhciBot
+ghciBot :: Process Handle Handle () -> Bot IO () T.Text T.Text
 ghciBot p =
   dimap (distinguish (/= "ghci: :q")) indistinct
     $  pureStatelessBot (const $ "I'm Sorry Dave")
