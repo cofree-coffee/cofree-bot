@@ -4,12 +4,10 @@ module CofreeBot.Bot.Behaviors.Calculator.Language where
 
 import           CofreeBot.Utils
 import           Control.Applicative
-import qualified Control.Arrow                 as Arrow
 import           Control.Monad.Error.Class
 import           Control.Monad.Except
 import           Control.Monad.RWS.Class
 import           Control.Monad.State
-import           Control.Monad.Writer
 import           Data.Attoparsec.Text          as A
 import           Data.Bifunctor
 import           Data.Char                      ( isAlpha
@@ -18,7 +16,6 @@ import           Data.Char                      ( isAlpha
 import           Data.Foldable
 import           Data.Functor
 import           Data.Functor.Identity
-import qualified Data.List.NonEmpty            as NE
 import qualified Data.Map.Strict               as Map
 import qualified Data.Text                     as T
 
@@ -54,8 +51,6 @@ data Statement
   = Let T.Text Expr
   | StdOut Expr
   deriving Show
-
-type Program = NE.NonEmpty Statement
 
 --------------------------------------------------------------------------------
 -- Printer
@@ -99,12 +94,6 @@ statementP = asum
   , StdOut <$> exprP
   ]
 
-programP :: Parser Program
-programP =
-  statementP
-    |*| ([] <$ endOfInput <|> endOfLine *> statementP `sepBy` endOfLine)
-    <&> uncurry (NE.:|)
-
 -- $> import Data.Attoparsec.Text
 
 -- $> import CofreeBot.Plugins.Calculator.Language
@@ -117,9 +106,10 @@ data ParseError = ParseError
   { parseInput :: T.Text
   , parseError :: T.Text
   }
+  deriving Show
 
-parseProgram :: T.Text -> Either ParseError Program
-parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt
+parseProgram :: T.Text -> Either ParseError Statement
+parseProgram txt = first (ParseError txt . T.pack) $ parseOnly ("calc:" *> skipSpace *> statementP) txt
 
 --------------------------------------------------------------------------------
 -- Evaluation types
@@ -137,30 +127,28 @@ data CalcResp = Log Expr Int
 --------------------------------------------------------------------------------
 
 newtype CalculatorM m a =
-  CalculatorM {runCalculatorM :: CalcState -> m (Either CalcError (a,  [CalcResp]), CalcState) }
+  CalculatorM {runCalculatorM :: CalcState -> m (Either CalcError a, CalcState) }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadState CalcState
     , MonadError CalcError
-    , MonadWriter [CalcResp]
     )
   via
-    Transformers '[WriterT [CalcResp] , ExceptT CalcError , StateT CalcState] m
+    Transformers '[ExceptT CalcError , StateT CalcState] m
 
 execCalc
   :: CalcState
   -> (forall m . Monad m => CalculatorM m a)
-  -> (Either CalcError [CalcResp], CalcState)
+  -> (Either CalcError a, CalcState)
 execCalc calcState calc =
-  Arrow.first (fmap snd)
-    . runIdentity                       -- (Either CalcError (a, [CalcResp]), CalcState)
+      runIdentity
     . runCalculatorM calc
     $ calcState
 
 -- | Evaluate an expression in our arithmetic language
-eval :: (Monad m) => Expr -> CalculatorM m Int
+eval :: Monad m => Expr -> CalculatorM m Int
 eval = \case
   Var bndr -> do
     s <- get
@@ -171,16 +159,17 @@ eval = \case
   Neg x    -> fmap negate $ eval x
 
 -- | Interpret a language statement into response.
-interpretStatement :: Monad m => Statement -> CalculatorM m ()
+interpretStatement :: Monad m => Statement -> CalculatorM m (Maybe CalcResp)
 interpretStatement = \case
   Let bndr expr -> do
     val <- eval expr
     modify (Map.insert bndr val)
+    pure Nothing
   StdOut expr -> do
     val <- eval expr
-    tell [Log expr val]
+    pure $ Just $ Log expr val
 
 interpretProgram
-  :: Program -> CalcState -> (Either CalcError [CalcResp], CalcState)
+  :: Statement -> CalcState -> (Either CalcError (Maybe CalcResp), CalcState)
 interpretProgram program calcState =
-  execCalc calcState $ traverse_ interpretStatement program
+  execCalc calcState $ interpretStatement program

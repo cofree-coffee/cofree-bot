@@ -38,14 +38,14 @@ main = do
 bot process =
   let calcBot =
         liftSimpleBot
-          $ simplifySessionBot printCalcOutput programP
+          $ simplifySessionBot printCalcOutput statementP
           $ sessionize mempty
           $ calculatorBot
       helloBot       = helloMatrixBot
       coinFlipBot'   = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'       = liftSimpleBot $ ghciBot process
       magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
-  in  calcBot
+  in liftSimpleBot (simplifyCalculatorBot calculatorBot)
         /.\ coinFlipBot'
         /.\ helloBot
         /.\ ghciBot'
