@@ -66,12 +66,10 @@ matrixMain :: ClientSession -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  undefined
-  -- unsafeCrashInIO
-  --   $ loop
-  --   $ annihilate (matrix session xdgCache)
-  --   $ fmap join
-  --   $ traverse'
-  --   $ flip fixBot mempty
-  --   $ hoistBot liftIO
-  --   $ bot process
+  unsafeCrashInIO
+    $ loop
+    $ annihilate (matrix session xdgCache)
+    $ batch
+    $ flip fixBot mempty
+    $ hoistBot liftIO
+    $ bot process

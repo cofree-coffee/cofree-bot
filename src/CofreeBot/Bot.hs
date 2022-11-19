@@ -20,6 +20,7 @@ module CofreeBot.Bot
   , -- * Behavior
     Behavior(..)
   , fixBot
+  , batch
   , -- * Env
     Env(..)
   , fixEnv
@@ -42,7 +43,6 @@ module CofreeBot.Bot
 import           CofreeBot.Utils
 import           CofreeBot.Utils.ListT
 import qualified Control.Arrow                 as Arrow
-import           Control.Arrow                  ( (&&&) )
 import           Control.Exception              ( catch
                                                 , throwIO
                                                 )
@@ -56,7 +56,8 @@ import           Control.Monad.Except
 import           Control.Monad.Reader
 import           Control.Monad.State
 import           Data.Bifunctor                 ( Bifunctor(..) )
-import           Data.Fix                       ( Fix(Fix) )
+import           Data.Fix                       ( Fix(..) )
+import           Data.Foldable                  ( asum )
 import           Data.Functor                   ( (<&>) )
 import           Data.Kind
 import qualified Data.Map.Strict               as Map
@@ -134,6 +135,11 @@ fixBot (Bot b) = go
  where
   go :: s -> Behavior m i o
   go s = Behavior $ \i -> second go <$> b s i
+
+-- | Batch process a list of inputs @i@ with a single 'Behavior',
+-- interleaving the effects, and collecting the resulting outputs @o@.
+batch :: Monad m => Behavior m i o -> Behavior m [i] o
+batch (Behavior b) = Behavior $ fmap (fmap batch) . asum . fmap b
 
 --------------------------------------------------------------------------------
 
