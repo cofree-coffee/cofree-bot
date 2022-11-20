@@ -3,12 +3,14 @@ module CofreeBot.Utils
     type (/\)
   , pattern (:&)
   , (|*|)
+  , type (/+\)
   ,
     -- * Coproduct
     type (\/)
   ,
+
     -- * Wedge Product
-    type (\?/)
+    type (\*/)
   ,
     -- *  MTL Helpers
     Transformers
@@ -25,6 +27,7 @@ module CofreeBot.Utils
 import           Control.Applicative
 import           Control.Arrow                  ( (&&&) )
 import           Data.Kind
+import           Data.These                     ( These )
 
 -------------------------------------------------------------------------------
 
@@ -53,9 +56,17 @@ infixr \/
 
 -------------------------------------------------------------------------------
 
-type a \?/ b = Maybe (Either a b)
+type a \*/ b = Maybe (Either a b)
 
-infixr \?/
+infixr \*/
+
+-------------------------------------------------------------------------------
+-- These
+-------------------------------------------------------------------------------
+
+type a /+\ b = These a b
+
+infixr /+\
 
 -------------------------------------------------------------------------------
 
@@ -80,5 +91,5 @@ distinguish f x | f x       = Right x
                 | otherwise = Left x
 
 class PointedChoice p where
-  pleft :: p a b -> p (x \?/ a) (x \?/ b)
-  pright :: p a b -> p (a \?/ x) (b \?/ x)
+  pleft :: p a b -> p (x \*/ a) (x \*/ b)
+  pright :: p a b -> p (a \*/ x) (b \*/ x)

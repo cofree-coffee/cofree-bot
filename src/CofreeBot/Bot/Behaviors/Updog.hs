@@ -6,6 +6,7 @@ module CofreeBot.Bot.Behaviors.Updog
 --------------------------------------------------------------------------------
 
 import           CofreeBot.Bot
+import           CofreeBot.Utils.ListT          ( toListT )
 import           Control.Applicative            ( empty
                                                 , liftA2
                                                 )
@@ -46,13 +47,15 @@ what = "what" ||| "What" ||| "WHAT"
 
 --------------------------------------------------------------------------------
 
-updogSimpleBot :: Applicative m => Bot m s Text [Text]
-updogSimpleBot = pureStatelessBot $ runMatches
-  [ Match (what <> "updog")    "nothin much whats up with you dog"
-  , Match (what <> "snakesay") "Hissss, hisssss"
-  , Match (what <> "OPP")      "yo, you know me!"
-  ]
+updogSimpleBot :: Applicative m => Bot m s Text Text
+updogSimpleBot = Bot $ \s i ->
+  let matches =
+        [ Match (what <> "updog")    "nothin much whats up with you dog"
+        , Match (what <> "snakesay") "Hissss, hisssss"
+        , Match (what <> "OPP")      "yo, you know me!"
+        ]
+  in  fmap (, s) $ toListT $ runMatches matches i
 
-updogMatrixBot :: Applicative m => MatrixBot m ()
+updogMatrixBot :: Monad m => MatrixBot m ()
 updogMatrixBot = liftSimpleBot updogSimpleBot
 

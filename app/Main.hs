@@ -9,9 +9,6 @@ import           Control.Monad.Except           ( ExceptT
                                                 , runExceptT
                                                 )
 import           Control.Monad.IO.Class         ( liftIO )
-import           Data.Profunctor
-import           Data.Profunctor.Traversing
-import qualified Data.Text                     as T
 import           GHC.Conc                       ( threadDelay )
 import           Network.Matrix.Client
 import qualified Options.Applicative           as Opt
@@ -36,28 +33,27 @@ main = do
 bot process =
   let calcBot =
         liftSimpleBot
-          $ simplifySessionBot (T.intercalate "\n" . printCalcOutput) programP
+          $ simplifySessionBot printCalcOutput statementP
           $ sessionize mempty
           $ calculatorBot
       helloBot       = helloMatrixBot
       coinFlipBot'   = liftSimpleBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot'       = liftSimpleBot $ ghciBot process
       magic8BallBot' = liftSimpleBot $ simplifyMagic8BallBot magic8BallBot
-  in  rmap
-          (\(x :& y :& z :& q :& w :& p :& r) -> x <> y <> z <> q <> w <> p <> r)
-        $  calcBot
-        /\ helloBot
-        /\ coinFlipBot'
-        /\ ghciBot'
-        /\ magic8BallBot'
-        /\ updogMatrixBot
-        /\ liftSimpleBot jitsiBot
+  in calcBot
+        /.\ coinFlipBot'
+        /.\ helloBot
+        /.\ ghciBot'
+        /.\ magic8BallBot'
+        /.\ updogMatrixBot
+        /.\ liftSimpleBot jitsiBot
 
 cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  loop $ annihilate repl $ flip fixBot mempty $ simplifyMatrixBot $ bot process
+  void $ loop $ annihilate repl $ flip fixBot mempty $ simplifyMatrixBot $ bot
+    process
 
 unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
@@ -69,8 +65,7 @@ matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   unsafeCrashInIO
     $ loop
     $ annihilate (matrix session xdgCache)
-    $ fmap join
-    $ traverse'
+    $ batch
     $ flip fixBot mempty
     $ hoistBot liftIO
     $ bot process
