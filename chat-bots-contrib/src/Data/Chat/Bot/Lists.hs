@@ -7,6 +7,7 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Applicative
+import Control.Monad (void)
 import Data.Attoparsec.ByteString.Char8
   ( isSpace,
   )
@@ -26,7 +27,7 @@ import Data.Text qualified as T
 
 data ListItemAction = Insert T.Text | Modify Int T.Text | Remove Int
 
-data ListAction = CreateList T.Text | ModifyList T.Text ListItemAction | RemoveList T.Text | List T.Text
+data ListAction = CreateList T.Text | ModifyList T.Text ListItemAction | DeleteList T.Text | ShowList T.Text
 
 listItemBot :: (Monad m) => Bot m (IntMap T.Text) ListItemAction T.Text
 listItemBot = Bot $ \s -> \case
@@ -47,25 +48,57 @@ listsBot' = Bot $ \s -> \case
     let t = fromMaybe IntMap.empty $ Map.lookup name s
     t' <- fmap snd $ runBot listItemBot t action
     pure ("List Updated", Map.insert name t' s)
-  RemoveList name -> pure ("List deleted", Map.delete name s)
-  List name -> pure (T.pack $ show $ Map.lookup name s, s)
+  DeleteList name -> pure ("List deleted", Map.delete name s)
+  ShowList name -> pure (T.pack $ show $ Map.lookup name s, s)
 
 listsBot :: (Monad m) => Bot m (s, (Map T.Text (IntMap T.Text))) T.Text T.Text
 listsBot = dimap (parseOnly parseListAction) indistinct $ emptyBot \/ listsBot'
 
 parseListAction :: Parser ListAction
 parseListAction =
-  parseCreateList <|> parseModifyList <|> parseRemoveList <|> parseListList
+  parseCreateList
+    <|> parseDeleteList
+    <|> parseAddListItem
+    <|> parseRemoveListItem
+    <|> parseUpdateListItem
+    <|> parseShowList
   where
-    parseCreateList = "create" *> skipSpace *> fmap CreateList (takeTill isSpace)
-    parseModifyList =
-      "add"
-        *> skipSpace
-        *> fmap ModifyList (takeTill isSpace)
-        <*> fmap Insert takeText
-    parseRemoveList =
-      "remove"
-        *> skipSpace
-        *> fmap ModifyList (takeTill isSpace)
-        <*> fmap Remove decimal
-    parseListList = "show" *> skipSpace *> fmap List takeText
+    parseName = ("📝" <|> "list") *> skipSpace *> takeTill isSpace
+    parseCreateList = do
+      name <- parseName
+      skipSpace
+      void $ "➕" <|> "create"
+      skipSpace
+      pure (CreateList name)
+    parseDeleteList = do
+      name <- parseName
+      skipSpace
+      void $ "➖" <|> "delete"
+      skipSpace
+      pure (DeleteList name)
+    parseShowList = do
+      name <- parseName
+      pure (ShowList name)
+    parseAddListItem = do
+      name <- parseName
+      skipSpace
+      void ("📝" <|> "add")
+      skipSpace
+      item <- takeText
+      pure (ModifyList name (Insert item))
+    parseRemoveListItem = do
+      name <- parseName
+      skipSpace
+      void ("✔️" <|> "remove")
+      skipSpace
+      key <- decimal
+      pure (ModifyList name (Remove key))
+    parseUpdateListItem = do
+      name <- parseName
+      skipSpace
+      void "update"
+      skipSpace
+      key <- decimal
+      skipSpace
+      item <- takeText
+      pure (ModifyList name (Modify key item))
