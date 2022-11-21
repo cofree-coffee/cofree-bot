@@ -1,16 +1,17 @@
 module CofreeBot.Bot.Behaviors.Jitsi
-  ( jitsiBot
-  ) where
+  ( jitsiBot,
+  )
+where
 
 --------------------------------------------------------------------------------
 
-import           CofreeBot.Bot
-import           CofreeBot.Bot.Behaviors.Jitsi.Dictionary
-import           CofreeBot.Utils                ( indistinct )
-import           Data.Profunctor
-import qualified Data.Text                     as T
-import qualified Data.Vector                   as V
-import           System.Random
+import CofreeBot.Bot
+import CofreeBot.Bot.Behaviors.Jitsi.Dictionary
+import CofreeBot.Utils (indistinct)
+import Data.Profunctor
+import Data.Text qualified as T
+import Data.Vector qualified as V
+import System.Random
 
 --------------------------------------------------------------------------------
 
@@ -22,18 +23,18 @@ pickRandomElement vs = do
 jitsiBot' :: IO T.Text
 jitsiBot' = do
   adjective <- pickRandomElement adjectives
-  noun      <- pickRandomElement pluralNouns
-  verb      <- pickRandomElement verbs
-  adverb    <- pickRandomElement adverbs
+  noun <- pickRandomElement pluralNouns
+  verb <- pickRandomElement verbs
+  adverb <- pickRandomElement adverbs
   let url = "https://meet.jit.si/" <> adjective <> noun <> verb <> adverb
   pure $ url
 
 jitsiBot :: TextBot IO ()
 jitsiBot =
   dimap
-      (\i ->
+    ( \i ->
         if (i == "🍐" || i == "pair" || i == "pair") then Right () else Left ()
-      )
-      indistinct
-    $  emptyBot
-    \/ liftEffect jitsiBot'
+    )
+    indistinct
+    $ emptyBot
+      \/ liftEffect jitsiBot'

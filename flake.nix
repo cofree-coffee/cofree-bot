@@ -42,6 +42,11 @@
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. { };
           };
         };
+
+        scripts = import ./nix/scripts.nix {
+          s = pkgs.writeShellScriptBin;
+          ormolu = pkgs.ormolu;
+        };
       in
       rec {
 
@@ -55,8 +60,9 @@
             ghcid
             haskell.compiler.${compiler}
             haskell.packages.${compiler}.haskell-language-server
+            ormolu
             zlib
-          ];
+          ] ++ (builtins.attrValues scripts);
         };
 
         packages = flake-utils.lib.flattenTree {
@@ -72,6 +78,13 @@
             src = ./.;
             hooks = {
               nixpkgs-fmt.enable = true;
+              ormolu = {
+                name = "ormolu";
+                entry = "${pkgs.ormolu}/bin/ormolu --mode inplace $(git ls-files '*.hs')";
+                files = "\\.l?hs$";
+                language = "system";
+                pass_filenames = false;
+              };
               cabal-fmt.enable = true;
             };
           };
