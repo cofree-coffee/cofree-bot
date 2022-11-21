@@ -1,23 +1,25 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
-{-# language RankNTypes #-}
+{-# LANGUAGE RankNTypes #-}
+
 module CofreeBot.Bot.Behaviors.Calculator.Language where
 
-import           CofreeBot.Utils
-import           Control.Applicative
-import           Control.Monad.Error.Class
-import           Control.Monad.Except
-import           Control.Monad.RWS.Class
-import           Control.Monad.State
-import           Data.Attoparsec.Text          as A
-import           Data.Bifunctor
-import           Data.Char                      ( isAlpha
-                                                , isDigit
-                                                )
-import           Data.Foldable
-import           Data.Functor
-import qualified Data.List.NonEmpty            as NE
-import qualified Data.Map.Strict               as Map
-import qualified Data.Text                     as T
+import CofreeBot.Utils
+import Control.Applicative
+import Control.Monad.Error.Class
+import Control.Monad.Except
+import Control.Monad.RWS.Class
+import Control.Monad.State
+import Data.Attoparsec.Text as A
+import Data.Bifunctor
+import Data.Char
+  ( isAlpha,
+    isDigit,
+  )
+import Data.Foldable
+import Data.Functor
+import Data.List.NonEmpty qualified as NE
+import Data.Map.Strict qualified as Map
+import Data.Text qualified as T
 
 --------------------------------------------------------------------------------
 -- Utils
@@ -48,7 +50,7 @@ data Expr
 data Statement
   = Let T.Text Expr
   | StdOut Expr
-  deriving Show
+  deriving (Show)
 
 type Program = NE.NonEmpty Statement
 
@@ -73,24 +75,26 @@ varNameP =
   fmap (uncurry T.cons) $ letter |*| A.takeWhile (liftA2 (||) isAlpha isDigit)
 
 exprP :: Parser Expr
-exprP = asum
-  [ fmap (uncurry Add) $ (exprP `infixOp` exprP) $ "+"
-  , fmap (uncurry Mult) $ (exprP `infixOp` exprP) $ "*"
-  , Neg <$> ("-" *> exprP)
-  , fmap Val $ decimal
-  , fmap Var $ varNameP
-  ]
+exprP =
+  asum
+    [ fmap (uncurry Add) $ (exprP `infixOp` exprP) $ "+",
+      fmap (uncurry Mult) $ (exprP `infixOp` exprP) $ "*",
+      Neg <$> ("-" *> exprP),
+      fmap Val $ decimal,
+      fmap Var $ varNameP
+    ]
 
 statementP :: Parser Statement
-statementP = asum
-  [ varNameP
-  |*| some space
-  |*| ":="
-  |*| some space
-  |*| exprP
-  <&> \(var :& _ :& _ :& _ :& expr) -> Let var expr
-  , StdOut <$> exprP
-  ]
+statementP =
+  asum
+    [ varNameP
+        |*| some space
+        |*| ":="
+        |*| some space
+        |*| exprP
+        <&> \(var :& _ :& _ :& _ :& expr) -> Let var expr,
+      StdOut <$> exprP
+    ]
 
 programP :: Parser Program
 programP =
@@ -107,8 +111,8 @@ programP =
 -- $> parseOnly programP "x := ((11 + 12) + 13)\nx + 1"
 
 data ParseError = ParseError
-  { parseInput :: T.Text
-  , parseError :: T.Text
+  { parseInput :: T.Text,
+    parseError :: T.Text
   }
 
 parseProgram :: T.Text -> Either ParseError Program
@@ -120,7 +124,7 @@ parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt
 data CalcResp = Log Expr Int | Ack
 
 data CalcError = LookupError T.Text
-  deriving Show
+  deriving (Show)
 
 type CalcState = Map.Map T.Text Int
 
@@ -129,10 +133,10 @@ eval :: Expr -> ExceptT CalcError (State CalcState) Int
 eval = \case
   Var var ->
     maybe (throwError $ LookupError var) pure =<< gets (Map.lookup var)
-  Val n    -> pure n
-  Add  x y -> liftA2 (+) (eval x) (eval y)
+  Val n -> pure n
+  Add x y -> liftA2 (+) (eval x) (eval y)
   Mult x y -> liftA2 (*) (eval x) (eval y)
-  Neg x    -> fmap negate (eval x)
+  Neg x -> fmap negate (eval x)
 
 -- | Interpret a language statement into response.
 interpretStatement :: Statement -> ExceptT CalcError (State CalcState) CalcResp

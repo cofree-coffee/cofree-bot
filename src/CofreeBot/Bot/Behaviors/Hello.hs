@@ -1,15 +1,16 @@
 -- | The Simplest Bot. This module serves as an introductory example
 -- for bot construction.
 module CofreeBot.Bot.Behaviors.Hello
-  ( helloSimpleBot
-  , helloMatrixBot
-  ) where
+  ( helloSimpleBot,
+    helloMatrixBot,
+  )
+where
 
 --------------------------------------------------------------------------------
 
-import           CofreeBot.Bot
-import           CofreeBot.Utils.ListT          ( emptyListT )
-import qualified Data.Text                     as T
+import CofreeBot.Bot
+import CofreeBot.Utils.ListT (emptyListT)
+import Data.Text qualified as T
 
 --------------------------------------------------------------------------------
 
@@ -18,7 +19,7 @@ import qualified Data.Text                     as T
 helloSimpleBot :: Monad m => TextBot m s
 helloSimpleBot = Bot $ \s msg ->
   let name = "cofree-bot"
-  in  if name `T.isInfixOf` msg
+   in if name `T.isInfixOf` msg
         then pure ("Are you talking to me, punk?", s)
         else emptyListT
 
