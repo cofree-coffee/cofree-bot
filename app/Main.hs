@@ -11,6 +11,7 @@ import Control.Monad.Except
     runExceptT,
   )
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable
 import GHC.Conc (threadDelay)
 import Network.Matrix.Client
 import Options.Applicative qualified as Opt
@@ -54,13 +55,9 @@ cliMain :: IO ()
 cliMain = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  void $
-    loop $
-      annihilate repl $
-        flip fixBot mempty $
-          simplifyMatrixBot $
-            bot
-              process
+  state <- readState "state"
+  fixedBot <- flip fixBotPersistent (fold state) $ simplifyMatrixBot $ bot process
+  void $ loop $ annihilate repl fixedBot
 
 unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
@@ -69,10 +66,6 @@ matrixMain :: ClientSession -> String -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  unsafeCrashInIO $
-    loop $
-      annihilate (matrix session xdgCache) $
-        batch $
-          flip fixBot mempty $
-            hoistBot liftIO $
-              bot process
+  state <- readState "state"
+  fixedBot <- flip fixBotPersistent (fold state) $ hoistBot liftIO $ bot process
+  unsafeCrashInIO $ loop $ annihilate (matrix session xdgCache) $ batch fixedBot

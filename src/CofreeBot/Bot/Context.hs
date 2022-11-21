@@ -64,7 +64,7 @@ mkUserAware = second'
 
 -- | A map of states @s@ used to track sessions in a "sessionized" bot.
 newtype SessionState s = SessionState {sessions :: IntMap s}
-  deriving newtype (Show, Semigroup, Monoid)
+  deriving newtype (Show, Read, Semigroup, Monoid)
 
 freshSessionKey :: IntMap a -> Int
 freshSessionKey state = case IntMap.lookupMax state of

@@ -102,3 +102,4 @@ library
     , process
     , random
     , vector
+    , xdg-basedir
