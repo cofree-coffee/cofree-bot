@@ -1,11 +1,11 @@
-resolver: lts-18.16
+resolver: lts-20.1
 
 packages:
 - .
 
 extra-deps:
 - git: https://github.com/cofree-coffee/matrix-client-haskell.git
-  commit: f8610d8956bd146105292bb75821ca078d01b5ff
+  commit: 0.1.4.2
   subdirs:
     - matrix-client
 
