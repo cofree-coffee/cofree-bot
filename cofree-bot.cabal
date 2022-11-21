@@ -85,6 +85,7 @@ library
     CofreeBot.Bot.Context
     CofreeBot.Utils
     CofreeBot.Utils.ListT
+    Parsing
 
   build-depends:
     , aeson
