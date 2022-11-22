@@ -9,11 +9,9 @@
       url = github:numtide/flake-utils;
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils, pre-commit-hooks }:
+  outputs = { self, nixpkgs, flake-utils }:
     let
       ghcVersion = "924";
       compiler = "ghc${ghcVersion}";
@@ -53,7 +51,6 @@
         # Note: cannot reference anything that depends on `evalPkgs` like `hsPkgs`
         # otherwise non-x86_64-linux users will not be able to build the dev env
         devShell = pkgs.mkShell {
-          inherit (self.checks.${system}.pre-commit-check) shellHook;
           buildInputs = with pkgs; [
             cabal2nix
             cabal-install
@@ -71,23 +68,6 @@
             cofree-bot = hsPkgs.cofree-bot;
           };
           cofree-bot = hsPkgs.cofree-bot;
-        };
-
-        checks = {
-          pre-commit-check = pre-commit-hooks.lib.${system}.run {
-            src = ./.;
-            hooks = {
-              nixpkgs-fmt.enable = true;
-              ormolu = {
-                name = "ormolu";
-                entry = "${pkgs.ormolu}/bin/ormolu --mode inplace $(git ls-files '*.hs')";
-                files = "\\.l?hs$";
-                language = "system";
-                pass_filenames = false;
-              };
-              cabal-fmt.enable = true;
-            };
-          };
         };
 
         defaultPackage = packages.cofree-bot;
