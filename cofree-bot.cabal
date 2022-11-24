@@ -8,6 +8,8 @@ author:        Solomon, Asad, and the Cofree-Coffee community
 maintainer:    ssbothwell@gmail.com
 category:      bot, chat-bot, finite-state-machines, matrix
 
+--------------------------------------------------------------------------------
+
 common common-settings
   default-language:   Haskell2010
   default-extensions:
@@ -42,6 +44,8 @@ common common-settings
     -Wpartial-fields
     -Werror=missing-home-modules
 
+--------------------------------------------------------------------------------
+
 common common-libraries
   build-depends:
     , base           >=2 && <5
@@ -68,6 +72,8 @@ executable cofree-bot
     , xdg-basedir
 
   other-modules:  OptionsParser
+
+--------------------------------------------------------------------------------
 
 library
   import:
@@ -109,3 +115,29 @@ library
     , random
     , vector
     , xdg-basedir
+
+--------------------------------------------------------------------------------
+
+test-suite cofree-bot-test
+  import:
+    , common-libraries
+    , common-settings
+
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+
+  build-depends:
+    , attoparsec
+    , cofree-bot
+    , data-fix
+    , hspec
+    , hspec-core
+    , lens
+    , mtl
+    , parsec
+    , template-haskell
+
+  other-modules:
+    Scripts
+    TestServer

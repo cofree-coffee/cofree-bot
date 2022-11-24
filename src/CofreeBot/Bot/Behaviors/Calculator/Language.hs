@@ -115,6 +115,9 @@ data ParseError = ParseError
     parseError :: T.Text
   }
 
+parseStatement :: T.Text -> Either ParseError Statement
+parseStatement txt = first (ParseError txt . T.pack) $ parseOnly statementP txt
+
 parseProgram :: T.Text -> Either ParseError Program
 parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt
 
