@@ -5,11 +5,14 @@ module Main where
 --------------------------------------------------------------------------------
 
 import CofreeBot.Bot (fixBot)
-import CofreeBot.Bot.Behaviors.Calculator
+import CofreeBot.Bot.Behaviors
   ( calculatorBot,
+    helloSimpleBot,
+    printCalcOutput,
     simplifyCalculatorBot,
   )
-import CofreeBot.Bot.Behaviors.Hello (helloSimpleBot)
+import CofreeBot.Bot.Behaviors.Calculator.Language (statementP)
+import CofreeBot.Bot.Context (sessionize, simplifySessionBot)
 import Scripts (mkScript)
 import Test.Hspec (Spec, describe, hspec, it, shouldBe)
 import TestServer (runTestScript)
@@ -20,17 +23,19 @@ main :: IO ()
 main = hspec $ do
   helloBotSpec
   calculatorBotSpec
+  sessionizedBotSpec
 
 helloBotSpec :: Spec
 helloBotSpec =
   describe "Hello Bot" $ do
+    let bot = helloSimpleBot
     it "responds to precisely its trigger phrase" $ do
       let scenario =
             [mkScript|
             >>>cofree-bot
             <<<Are you talking to me, punk?
             |]
-      result <- runTestScript scenario $ fixBot helloSimpleBot ()
+      result <- runTestScript scenario $ fixBot bot ()
       result `shouldBe` scenario
 
     it "responds to its trigger phrase embedded in a sentence" $ do
@@ -39,12 +44,13 @@ helloBotSpec =
             >>>hows it going cofree-bot
             <<<Are you talking to me, punk?
             |]
-      result <- runTestScript scenario $ fixBot helloSimpleBot ()
+      result <- runTestScript scenario $ fixBot bot ()
       result `shouldBe` scenario
 
 calculatorBotSpec :: Spec
 calculatorBotSpec =
   describe "Calculator Bot" $ do
+    let bot = simplifyCalculatorBot calculatorBot
     it "performs arithmetic" $ do
       let scenario =
             [mkScript|
@@ -55,7 +61,7 @@ calculatorBotSpec =
             >>>((2 * 3) + 1)
             <<<2 * 3 + 1 = 7
             |]
-      result <- runTestScript scenario $ fixBot (simplifyCalculatorBot calculatorBot) mempty
+      result <- runTestScript scenario $ fixBot bot mempty
       result `shouldBe` scenario
 
     it "can store values in state" $ do
@@ -66,5 +72,29 @@ calculatorBotSpec =
             >>>x
             <<<"x" = 3
             |]
-      result <- runTestScript scenario $ fixBot (simplifyCalculatorBot calculatorBot) mempty
+      result <- runTestScript scenario $ fixBot bot mempty
+      result `shouldBe` scenario
+
+sessionizedBotSpec :: Spec
+sessionizedBotSpec =
+  describe "Sessionized Bot" $ do
+    let bot = simplifySessionBot printCalcOutput statementP $ sessionize mempty $ calculatorBot
+    it "can instantiate a session" $ do
+      let scenario =
+            [mkScript|
+            >>>new
+            <<<Session Started: '0'.
+            |]
+      result <- runTestScript scenario $ fixBot bot mempty
+      result `shouldBe` scenario
+
+    it "can delete a session" $ do
+      let scenario =
+            [mkScript|
+            >>>new
+            <<<Session Started: '0'.
+            >>>end 0
+            <<<Session Ended: '0'.
+            |]
+      result <- runTestScript scenario $ fixBot bot mempty
       result `shouldBe` scenario
