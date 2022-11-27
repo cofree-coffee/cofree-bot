@@ -98,3 +98,38 @@ sessionizedBotSpec =
             |]
       result <- runTestScript scenario $ fixBot bot mempty
       result `shouldBe` scenario
+
+    it "preserves bot behavior" $ do
+      let scenario =
+            [mkScript|
+            >>>new
+            <<<Session Started: '0'.
+            >>>use 0: (1 + 2)  
+            <<<Session '0' Output:
+            1 + 2 = 3
+            |]
+      result <- runTestScript scenario $ fixBot bot mempty
+      result `shouldBe` scenario
+
+    it "tracks multiple sessions" $ do
+      let scenario =
+            [mkScript|
+            >>>new
+            <<<Session Started: '0'.
+            >>>new
+            <<<Session Started: '1'.
+            >>>use 0: x := (1 + 2)  
+            <<<Session '0' Output:
+            *variable saved*
+            >>>use 1: x := 42
+            <<<Session '1' Output:
+            *variable saved*
+            >>>use 0: x
+            <<<Session '0' Output:
+            "x" = 3
+            >>>use 1: x
+            <<<Session '1' Output:
+            "x" = 42
+            |]
+      result <- runTestScript scenario $ fixBot bot mempty
+      result `shouldBe` scenario
