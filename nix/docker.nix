@@ -13,7 +13,7 @@ pkgs.dockerTools.buildLayeredImage {
     Entrypoint = "${pkgs.bash}/bin/bash";
     Cmd = [
       "-c"
-      "${pkgs.haskell.lib.justStaticExecutables cofree-bot}/bin/cofree-bot run --auth_token $AUTH_TOKEN --homeserver https://matrix.cofree.coffee"
+      "${pkgs.haskell.lib.justStaticExecutables cofree-bot}/bin/cofree-bot run"
     ];
   };
 }
