@@ -8,8 +8,9 @@ where
 
 import Control.Monad (void)
 import Data.Aeson qualified as Aeson
-import Data.Functor.Barbie
-import Options.Types
+import Data.Functor.Barbie (bpure)
+import Data.Yaml qualified as Yaml
+import Options.Types (ClientSessionF)
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.Environment.XDG.BaseDir (getUserConfigDir)
 import System.FilePath
@@ -23,7 +24,7 @@ readJSON = do
   void $ createDirectoryIfMissing True configDir
   let path = configDir </> "config"
   doesFileExist path >>= \case
-    True -> Aeson.decodeFileStrict path
+    True -> Yaml.decodeFileThrow path
     False -> pure Nothing
 
 fromConfig :: IO (ClientSessionF Maybe)

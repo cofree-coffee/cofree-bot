@@ -65,6 +65,7 @@ executable cofree-bot
     , mtl
     , optparse-applicative
     , xdg-basedir
+    , yaml
 
   other-modules:
     , Options
