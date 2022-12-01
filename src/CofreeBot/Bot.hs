@@ -82,7 +82,7 @@ import Data.These
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 import System.Directory (createDirectoryIfMissing)
-import System.Environment.XDG.BaseDir (getUserCacheDir)
+import System.FilePath
 import System.IO
 import System.IO.Error (isDoesNotExistError)
 import System.Random
@@ -153,31 +153,29 @@ fixBot (Bot b) = go
 -- TODO: A bi-parser typeclass
 type Serializable a = (Read a, Show a)
 
-fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => Bot m s i o -> s -> IO (Behavior m i o)
-fixBotPersistent (Bot bot) initialState = do
-  saveState "state" initialState
+fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (Behavior m i o)
+fixBotPersistent cachePath (Bot bot) initialState = do
+  saveState cachePath initialState
   pure go
   where
     go :: Behavior m i o
     go = Behavior $ \i ->
-      liftIO (readState "state") >>= \case
+      liftIO (readState cachePath) >>= \case
         Nothing -> error "ERROR: Failed to read Bot State from disk."
         Just oldState -> do
           (output, newState) <- bot oldState i
-          liftIO $ saveState "state" newState
-          pure $ (output, go)
+          liftIO $ saveState cachePath newState
+          pure (output, go)
 
-readState :: Read s => T.Text -> IO (Maybe s)
-readState key = do
-  cache <- getUserCacheDir "cofree-bot"
-  s <- readFileMaybe $ cache <> "/" <> T.unpack key
+readState :: Read s => String -> IO (Maybe s)
+readState cachePath = do
+  s <- readFileMaybe $ cachePath </> "state"
   pure $ fmap (read . T.unpack) s
 
-saveState :: Show s => T.Text -> s -> IO ()
-saveState key state' = do
-  cache <- getUserCacheDir "cofree-bot"
-  createDirectoryIfMissing True cache
-  writeFile (cache <> "/" <> T.unpack key) (show state')
+saveState :: Show s => String -> s -> IO ()
+saveState cachePath state' = do
+  createDirectoryIfMissing True cachePath
+  writeFile (cachePath </> "state") (show state')
 
 -- | Batch process a list of inputs @i@ with a single 'Behavior',
 -- interleaving the effects, and collecting the resulting outputs @o@.
