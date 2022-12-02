@@ -10,41 +10,57 @@ then "lifted" to operate in any context.
 Supported Chat Protocols:
 -------------------------
 - [x] Matrix
-- [ ] Zulip (in progress)
+- [ ] Discord
+- [ ] IRC
+- [ ] Slack
+- [ ] Zulip
 - [x] CLI REPL
 
 The Bot type
 ------------
 ```Haskell
-data BotAction s o = BotAction { responses :: o, nextState :: s }
-newtype Bot m s i o = Bot { runBot :: i -> s -> m (BotAction s o) }
+newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
 ```
 
 Building bot behaviors
 ----------------------
 ```Haskell
-helloWorldBot :: Applicative m => Bot m () T.Text T.Text
-helloWorldBot = Bot $ \input state ->
-  let output = "Hello " <> input
-  in pure $ BotAction output state
+helloBot :: Monad m => Bot m s Text Text
+helloBot = Bot $ \s msg ->
+  let name = "cofree-bot"
+   in if name `T.isInfixOf` msg
+        then pure ("Are you talking to me, punk?", s)
+        else emptyListT
 ```
 
 Lifting Bots Over more complex inputs and outputs
 -------------------------------------------------
 ```Haskell
-matrixHelloBot :: Bot IO () (RoomID, Event) (RoomID, Event)
-matrixHelloBot = second' $ dimap viewBody mkMsg helloWorldBot
-  where
-    viewBody :: Event -> T.Text
-    viewBody = (view (_EventRoomMessage . _RoomMessageText . _mtBody))
+liftSimpleBot :: Functor m => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
+liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
+  fmap (\(i', s') -> ((rid, mkMsg i'), s')) $ bot s (viewBody i)
 
-    mkMsg :: T.Text -> Event
-    mkMsg msg = EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
+viewBody :: Event -> T.Text
+viewBody = view (_EventRoomMessage . _RoomMessageText . _mtBody)
+
+mkMsg :: T.Text -> Event
+mkMsg msg =
+  EventRoomMessage $ RoomMessageText $ MessageText msg TextType Nothing Nothing
 ```
 
-Combing Bot Behaviors
+Combining Bot Behaviors
 ---------------------
 ```Haskell
-combinedBot :: Applicative m => Bot m () (Either T.Text Int) (Either T.Text Int)
-combinedBot = helloWorldBot \/ calculatorBot
+type (/\) = (,)
+type (\/) = Either
+type a /+\ b = These a b
+type a \*/ b = Maybe (Either a b)
+
+(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
+(/+\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
+(/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
+(\/) :: Monad m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
+nudge :: Monad m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
+nudgeLeft :: Monad m => Bot m s i o -> Bot m s (i \/ i') (o \*/ o')
+nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
 ```
