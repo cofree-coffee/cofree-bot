@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -22,6 +23,7 @@ module CofreeBot.Bot
     -- * Behavior
     Behavior (..),
     fixBot,
+    fixBotPersistent,
     batch,
 
     -- * Env
@@ -42,6 +44,8 @@ module CofreeBot.Bot
     -- * Text Bot
     TextBot,
     repl,
+    readState,
+    saveState,
   )
 where
 
@@ -78,6 +82,7 @@ import Data.These
 import Network.Matrix.Client
 import Network.Matrix.Client.Lens
 import System.Directory (createDirectoryIfMissing)
+import System.FilePath
 import System.IO
 import System.IO.Error (isDoesNotExistError)
 import System.Random
@@ -144,6 +149,33 @@ fixBot (Bot b) = go
   where
     go :: s -> Behavior m i o
     go s = Behavior $ \i -> second go <$> b s i
+
+-- TODO: A bi-parser typeclass
+type Serializable a = (Read a, Show a)
+
+fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (Behavior m i o)
+fixBotPersistent cachePath (Bot bot) initialState = do
+  saveState cachePath initialState
+  pure go
+  where
+    go :: Behavior m i o
+    go = Behavior $ \i ->
+      liftIO (readState cachePath) >>= \case
+        Nothing -> error "ERROR: Failed to read Bot State from disk."
+        Just oldState -> do
+          (output, newState) <- bot oldState i
+          liftIO $ saveState cachePath newState
+          pure (output, go)
+
+readState :: Read s => String -> IO (Maybe s)
+readState cachePath = do
+  s <- readFileMaybe $ cachePath </> "state"
+  pure $ fmap (read . T.unpack) s
+
+saveState :: Show s => String -> s -> IO ()
+saveState cachePath state' = do
+  createDirectoryIfMissing True cachePath
+  writeFile (cachePath </> "state") (show state')
 
 -- | Batch process a list of inputs @i@ with a single 'Behavior',
 -- interleaving the effects, and collecting the resulting outputs @o@.

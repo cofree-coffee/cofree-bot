@@ -41,6 +41,7 @@ common common-libraries
   build-depends:
     , base           >=2 && <5
     , bytestring
+    , filepath
     , matrix-client
     , network-uri
     , profunctors
@@ -102,3 +103,4 @@ library
     , process
     , random
     , vector
+    , xdg-basedir

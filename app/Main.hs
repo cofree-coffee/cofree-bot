@@ -11,6 +11,7 @@ import Control.Monad.Except
     runExceptT,
   )
 import Control.Monad.IO.Class (liftIO)
+import Data.Foldable
 import GHC.Conc (threadDelay)
 import Network.Matrix.Client
 import Options.Applicative qualified as Opt
@@ -30,7 +31,7 @@ main = do
     TokenCmd TokenCredentials {..} -> do
       session <- createSession (getMatrixServer matrixServer) matrixToken
       matrixMain session xdgCache
-    CLI -> cliMain
+    CLI -> cliMain xdgCache
 
 bot process =
   let calcBot =
@@ -50,29 +51,21 @@ bot process =
         /.\ updogMatrixBot
         /.\ liftSimpleBot jitsiBot
 
-cliMain :: IO ()
-cliMain = withProcessWait_ ghciConfig $ \process -> do
+cliMain :: FilePath -> IO ()
+cliMain xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  void $
-    loop $
-      annihilate repl $
-        flip fixBot mempty $
-          simplifyMatrixBot $
-            bot
-              process
+  state <- readState xdgCache
+  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ simplifyMatrixBot $ bot process
+  void $ loop $ annihilate repl fixedBot
 
 unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
 
-matrixMain :: ClientSession -> String -> IO ()
+matrixMain :: ClientSession -> FilePath -> IO ()
 matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
-  unsafeCrashInIO $
-    loop $
-      annihilate (matrix session xdgCache) $
-        batch $
-          flip fixBot mempty $
-            hoistBot liftIO $
-              bot process
+  state <- readState xdgCache
+  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ hoistBot liftIO $ bot process
+  unsafeCrashInIO $ loop $ annihilate (matrix session xdgCache) $ batch fixedBot
