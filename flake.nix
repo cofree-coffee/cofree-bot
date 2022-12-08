@@ -3,7 +3,7 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixos-22.05;
+    nixpkgs.url = github:NixOS/nixpkgs/nixos-22.11;
 
     flake-utils = {
       url = github:numtide/flake-utils;
