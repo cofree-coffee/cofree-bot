@@ -7,11 +7,11 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - synchronize
+    #branches:
+    #  - main
+    #types:
+    #  - opened
+    #  - synchronize
 
 jobs:
   check-format:
@@ -31,48 +31,50 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     
-#   NOTE: once the library is ready to be released into the wild
-#   we could use this code block to run the tests and build the exe.
-#   on multiple GHC versions and perhaps even multiple cabal versions
     strategy:
       matrix:
-        cabal: ["3.4"]
+        cabal: ["3.6"]
         ghc: ["8.10.7", "9.0.2", "9.2.4"]
 
     env:
       CONFIG: "--project-file=cabal.project"
 
     steps:
-      - name: "Checkout"
+      - name: Checkout
         uses: actions/checkout@v2
 
-      - name: "Setup"
-        uses: haskell/actions/setup@v1.2
+      - name: Setup
+        uses: haskell/actions/setup@v1
         id: setup-haskell-cabal
         with:
-          ghc-version: "8.10.7"
-          cabal-version: "3.4"
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: ${{ matrix.cabal }}
 
-      - name: "Cache"
-        uses: actions/cache@v2
+      - name: Freeze
+        run: |
+          cabal configure --enable-tests --test-show-details=direct
+          cabal freeze
+
+      - name: Cache
+        uses: actions/cache@v3
         env:
           cache-name: cache-cabal
         with:
           path: |
             ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
             dist-newstyle
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
           restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-      
-      - name: "Build"
-        run: cabal build $CONFIG
+            ${{ runner.os }}-${{ matrix.ghc }}-      
 
-# NOTE: keeping these here for future versions
-#      - name: "Test"
-#        run: cabal test $CONFIG
-#
-#      - run: cabal haddock $CONFIG
-#      - run: cabal sdist
+      - name: Build
+        run: cabal build all $CONFIG
+
+      - name: Test
+        run: cabal test all $CONFIG
+
+      - name: Haddock
+        run: cabal haddock all $CONFIG
+
+      - name: SDist
+        run: cabal sdist all $CONFIG
