@@ -2,26 +2,20 @@
 
 module Data.Chat.Server.Repl
   ( -- * Text Bot
-    TextBot,
     repl,
   )
 where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad
-import Control.Monad.IO.Class
-import Data.Chat.Bot
-import Data.Chat.Server
+import Control.Monad (forM_)
+import Control.Monad.IO.Class (MonadIO (..))
+import Data.Chat.Server (Server (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
-import System.IO
+import System.IO (hFlush, stdout)
 
 --------------------------------------------------------------------------------
-
--- | A 'TextBot' maps from 'Text' to '[Text]'. Lifting into a
--- 'SimpleBot' is useful for locally debugging another bot.
-type TextBot m s = Bot m s Text Text
 
 -- | A repl-style 'Server' for interacting with a 'Bot'.
 repl :: Server IO Text Text

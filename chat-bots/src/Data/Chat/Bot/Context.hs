@@ -32,6 +32,7 @@ import Data.Bifunctor (Bifunctor (first))
 import Data.Chat.Bot
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
+import Data.Kind (Type)
 import Data.Profunctor (second')
 import Data.Text (Text)
 import Data.Text qualified as Text

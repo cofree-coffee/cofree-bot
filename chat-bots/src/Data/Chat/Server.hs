@@ -1,5 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
+-- | The core Chat Server encoding.
 module Data.Chat.Server
   ( -- * Env
     Env (..),
@@ -8,10 +9,10 @@ module Data.Chat.Server
 
     -- * Server
     Server (..),
-    annihilate,
-    loop,
     hoistServer,
     liftServer,
+    annihilate,
+    loop,
   )
 where
 
@@ -20,7 +21,7 @@ where
 import Control.Monad.ListT (fromListT)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.Bifunctor (bimap)
-import Data.Chat.Bot
+import Data.Chat.Bot (Behavior (..))
 import Data.Fix (Fix (..))
 import Data.Profunctor (Profunctor (..))
 
@@ -98,5 +99,6 @@ annihilate (Server server) b@(Behavior botBehavior) = Fix $ do
       [] -> b
       _ -> snd $ last xs
 
+-- | Recursively unfold fixed point @Fix m@.
 loop :: Monad m => Fix m -> m x
 loop (Fix x) = x >>= loop

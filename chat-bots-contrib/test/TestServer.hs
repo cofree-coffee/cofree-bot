@@ -11,18 +11,18 @@ where
 
 --------------------------------------------------------------------------------
 
+import Control.Monad.Except
+  ( MonadError (..),
+    MonadTrans (..),
+    liftEither,
+    runExceptT,
+  )
 import Data.Chat.Bot (Behavior, hoistBehavior)
 import Data.Chat.Server
   ( Env (..),
     Server (..),
     annihilate,
     fixEnv,
-  )
-import Control.Monad.Except
-  ( MonadError (..),
-    MonadTrans (..),
-    liftEither,
-    runExceptT,
   )
 import Data.Fix (Fix (..))
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)

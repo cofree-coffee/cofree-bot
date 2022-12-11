@@ -12,8 +12,8 @@ import Data.Chat.Bot.Calculator
     simplifyCalculatorBot,
   )
 import Data.Chat.Bot.Calculator.Language (statementP)
-import Data.Chat.Bot.Hello (helloSimpleBot)
 import Data.Chat.Bot.Context (sessionize, simplifySessionBot)
+import Data.Chat.Bot.Hello (helloSimpleBot)
 import Data.Text (Text, pack)
 import Scripts (Script, mkScript)
 import Test.Hspec (Spec, describe, hspec, it, shouldNotBe)

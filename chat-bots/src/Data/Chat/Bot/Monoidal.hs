@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Tensory Products on 'Bot'
+-- | Tensor Products on 'Bot'
 module Data.Chat.Bot.Monoidal
   ( nudge,
     nudgeLeft,
@@ -14,13 +14,13 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad.ListT
+import Control.Monad.ListT (alignListT, toListT)
 import Data.Bifunctor (Bifunctor (..))
-import Data.Chat.Bot
-import Data.Chat.Utils
+import Data.Chat.Bot (Bot (..))
+import Data.Chat.Utils (type (/+\), type (/\), type (\*/), type (\/))
 import Data.Functor ((<&>))
-import Data.Profunctor
-import Data.These
+import Data.Profunctor (Strong (..))
+import Data.These (These (..))
 
 --------------------------------------------------------------------------------
 
