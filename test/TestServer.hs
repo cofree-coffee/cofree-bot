@@ -30,7 +30,7 @@ import Scripts
 
 --------------------------------------------------------------------------------
 
-nextInput :: Monad m => StateT ([i], [(i, [o])]) m (Maybe i)
+nextInput :: Monad m => StateT ([i], [Interaction i o]) m (Maybe i)
 nextInput =
   gets fst >>= \case
     [] -> pure Nothing
@@ -38,12 +38,12 @@ nextInput =
       modify $ \(_, os) -> (xs, os)
       pure (Just i)
 
-logResult :: Monad m => i -> [o] -> StateT ([i], [(i, [o])]) m ()
-logResult i os = modify $ \(inputs, results) -> (inputs, results <> [(i, os)])
+logResult :: Monad m => i -> [o] -> StateT ([i], [Interaction i o]) m ()
+logResult i os = modify $ \(inputs, results) -> (inputs, (results <> [Interaction i os]))
 
 -- | A 'Server' which feeds a pre-programed series of inputs into
 -- its paired bot.
-testServer :: Monad m => Server (StateT ([i], [(i, [o])]) m) o (Maybe i)
+testServer :: Monad m => Server (StateT ([i], [Interaction i o]) m) o (Maybe i)
 testServer =
   Server $ do
     nextInput >>= \case
@@ -56,7 +56,7 @@ testServer =
 type MaybeT m = ExceptT () m
 
 boundedAnnihilation ::
-  MonadState (([i], [(i, [o])])) m =>
+  MonadState (([i], [Interaction i o])) m =>
   Server m o (Maybe i) ->
   Behavior m i o ->
   Fix (MaybeT m)
@@ -81,4 +81,4 @@ runTestScript (Script script) bot =
             testServer
             (liftBehavior bot)
   where
-    inputs = fmap fst script
+    inputs = fmap input script

@@ -2,11 +2,12 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 
-module Scripts where
-
--- ( Script (..),
---   mkScript,
--- )
+module Scripts
+  ( Script (..),
+    Interaction (..),
+    mkScript,
+  )
+where
 
 --------------------------------------------------------------------------------
 
@@ -38,8 +39,8 @@ parseLineType = do
         fmap Continue (skipSpace *> line)
       ]
 
-data History = Input Text | Output Text
-  deriving (Show)
+data Message = Input Text | Output Text
+  deriving stock (Show)
 
 following :: [LineType] -> (Text, [LineType])
 following [] = ("", [])
@@ -48,7 +49,7 @@ following (Continue l : ls) =
    in ("\n" <> l <> a, b)
 following ls = ("", ls)
 
-aggregateLines :: [LineType] -> [History]
+aggregateLines :: [LineType] -> [Message]
 aggregateLines [] = []
 aggregateLines (StartInput l0 : ls) =
   let (a, b) = following ls
@@ -59,15 +60,19 @@ aggregateLines (StartOutput l0 : ls) =
 -- ignore lines before the first >>> or <<<
 aggregateLines (Continue _ : ls) = aggregateLines ls
 
-aggregateScript :: [History] -> Script
+aggregateScript :: [Message] -> Script
 aggregateScript history = Script $ reverse $ go history []
   where
+    go :: [Message] -> [Interaction Text Text] -> [Interaction Text Text]
     go [] res = res
-    go (Input x : xs) res = go xs ((x, []) : res)
+    go (Input x : xs) res = go xs ((Interaction x []) : res)
     go (Output _ : _) [] = error "Recieved an output without an input"
-    go (Output o : xs) ((i, os) : res) = go xs ((i, o : os) : res)
+    go (Output o : xs) (Interaction i os : res) = go xs (Interaction i (o : os) : res)
 
-newtype Script = Script [(Text, [Text])]
+data Interaction i o = Interaction {input :: i, output :: [o]}
+  deriving stock (Show, Read, Eq, Ord, Lift)
+
+newtype Script = Script [Interaction Text Text]
   deriving stock (Lift)
   deriving newtype (Show, Read, Eq, Ord)
 
