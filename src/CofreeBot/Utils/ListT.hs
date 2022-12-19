@@ -44,7 +44,7 @@ instance Functor m => Functor (ListT m) where
   fmap f (ListT ma) = ListT $ fmap (bimap f (fmap f)) $ ma
 
 instance Monad m => Applicative (ListT m) where
-  pure = return
+  pure = ListT . return . (`ConsF` emptyListT)
   (<*>) = ap
 
 instance Monad m => Alternative (ListT m) where
@@ -103,7 +103,7 @@ joinListT (ListT ma) = ListT $ do
         x `ConsF` xs' -> runListT $ consListT x $ joinListT $ consListT xs' xss
 
 instance Monad m => Monad (ListT m) where
-  return = ListT . return . (`ConsF` emptyListT)
+  return = pure
   ma >>= amb = joinListT $ fmap amb ma
 
 toListT :: (Foldable t, Applicative m) => t a -> ListT m a
