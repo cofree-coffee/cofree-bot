@@ -25,15 +25,20 @@ module CofreeBot.Bot
     fixBot,
     fixBotPersistent,
     batch,
+    hoistBehavior,
+    liftBehavior,
 
     -- * Env
     Env (..),
     fixEnv,
+    hoistEnv,
 
     -- * Server
     Server (..),
     annihilate,
     loop,
+    hoistServer,
+    liftServer,
 
     -- * Matrix Bot
     MatrixBot,
@@ -182,6 +187,16 @@ saveState cachePath state' = do
 batch :: Monad m => Behavior m i o -> Behavior m [i] o
 batch (Behavior b) = Behavior $ fmap (fmap batch) . asum . fmap b
 
+-- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
+-- @Behavior m s i o@ to @Behavior n s i o@
+hoistBehavior :: (Functor n, Functor m) => (forall x. m x -> n x) -> Behavior m i o -> Behavior n i o
+hoistBehavior f (Behavior b) = Behavior $ \i -> hoistListT f $ fmap (fmap (hoistBehavior f)) $ b i
+
+-- | Lift a computation on the monad @m@ to the constructed monad @t
+-- m@ in the context of a 'Behavior'.
+liftBehavior :: (Functor (t m), Monad m, MonadTrans t) => Behavior m i o -> Behavior (t m) i o
+liftBehavior = hoistBehavior lift
+
 --------------------------------------------------------------------------------
 
 -- | The dual to a 'Bot'.
@@ -205,6 +220,11 @@ newtype Env m s o i = Env {runEnv :: s -> m (i, [o] -> s)}
 instance Functor m => Profunctor (Env m s) where
   dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap (fmap f)))) env
 
+-- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
+-- @Env m s o i@ to @Env n s o i@
+hoistEnv :: Functor n => (forall x. m x -> n x) -> Env m s o i -> Env n s o i
+hoistEnv f (Env env) = Env $ \s -> f $ env s
+
 --------------------------------------------------------------------------------
 
 -- | The fixed point of an 'Env'. Like in 'Behavior' we have factored
@@ -226,6 +246,16 @@ fixEnv (Env b) = go
   where
     go :: s -> Server m o i
     go s = Server $ fmap (fmap (fmap go)) $ b s
+
+-- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
+-- @Env m s o i@ to @Env n s o i@
+hoistServer :: Functor n => (forall x. m x -> n x) -> Server m o i -> Server n o i
+hoistServer f (Server server) = Server $ fmap (fmap (fmap (hoistServer f))) $ f server
+
+-- | Lift a computation on the monad @m@ to the constructed monad @t
+-- m@ in the context of a 'Server'.
+liftServer :: (Functor (t m), Monad m, MonadTrans t) => Server m o i -> Server (t m) o i
+liftServer = hoistServer lift
 
 --------------------------------------------------------------------------------
 -- Operations
