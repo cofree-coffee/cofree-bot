@@ -303,16 +303,19 @@ infixr 9 /\
   (nextState', responses') <- b2 s' i
   pure $ (,) (nextState, nextState') (responses, responses')
 
--- | Runs two bots on the same input and then interleaves their output.
+-- | Runs two bots and then interleaves their output.
 infixr 9 /+\
 
 (/+\) ::
-  Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
-(/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
-  alignListT (b1 s i) (b2 s' i) <&> \case
-    This (o, _s) -> (This o, (s, s'))
-    That (o', _s') -> (That o', (s, s'))
-    These (o, _s) (o', _s') -> (These o o', (s, s'))
+  Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /+\ i') (o /+\ o')
+(/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') -> \case
+  This i -> fmap (bimap This (,s')) $ b1 s i
+  That i' -> fmap (bimap That (s,)) $ b2 s' i'
+  These i i' ->
+    alignListT (b1 s i) (b2 s' i') <&> \case
+      This (o, _s) -> (This o, (s, s'))
+      That (o', _s') -> (That o', (s, s'))
+      These (o, s) (o', s') -> (These o o', (s, s'))
 
 -- | Runs two bots on the same input and then interleaves their
 -- output, sequencing if they both return an output for the same
