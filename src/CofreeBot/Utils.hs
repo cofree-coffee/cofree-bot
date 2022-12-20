@@ -6,6 +6,7 @@ module CofreeBot.Utils
     pattern (:&),
     (|*|),
     type (/+\),
+    can,
 
     -- * Coproduct
     type (\/),
@@ -29,7 +30,7 @@ where
 import Control.Applicative
 import Control.Arrow ((&&&))
 import Data.Kind
-import Data.These (These)
+import Data.These (These (..))
 
 -------------------------------------------------------------------------------
 
@@ -68,6 +69,12 @@ infixr 6 \*/
 type a /+\ b = These a b
 
 infixr 6 /+\
+
+can :: Maybe a -> Maybe b -> Maybe (a /+\ b)
+can Nothing Nothing = Nothing
+can (Just a) Nothing = Just (This a)
+can Nothing (Just b) = Just (That b)
+can (Just a) (Just b) = Just (These a b)
 
 -------------------------------------------------------------------------------
 
