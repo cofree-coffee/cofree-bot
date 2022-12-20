@@ -17,7 +17,7 @@ module CofreeBot.Utils.ListT
     toListT,
     fromListT,
     hoistListT,
-    interleaveListT,
+    alignListT,
   )
 where
 
@@ -118,12 +118,12 @@ fromListT (ListT m) =
     NilF -> pure []
     ConsF a xs -> fmap (a :) $ fromListT xs
 
-interleaveListT :: Monad m => ListT m a -> ListT m b -> ListT m (These a b)
-interleaveListT (ListT m) (ListT n) = ListT $ do
+alignListT :: Monad m => ListT m a -> ListT m b -> ListT m (These a b)
+alignListT (ListT m) (ListT n) = ListT $ do
   x <- m
   y <- n
   pure $ case (x, y) of
     (NilF, NilF) -> NilF
     (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
     (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
-    (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (interleaveListT xs ys)
+    (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (alignListT xs ys)
