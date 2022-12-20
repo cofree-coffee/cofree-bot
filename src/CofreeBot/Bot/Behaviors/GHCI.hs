@@ -28,7 +28,7 @@ hGetOutput handle = whileM (hReady handle) (hGetChar handle)
 
 ghciBot' :: Process Handle Handle () -> Bot IO () T.Text T.Text
 ghciBot' p =
-  mapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser) $
+  contraMapMaybeBot (either (const Nothing) Just . parseOnly ghciInputParser) $
     Bot $
       \s i -> do
         o <- liftIO $ do

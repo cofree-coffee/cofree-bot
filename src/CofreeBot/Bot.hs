@@ -7,7 +7,7 @@ module CofreeBot.Bot
     KBot,
     Bot (..),
     invmapBot,
-    mapMaybeBot,
+    contraMapMaybeBot,
     nudge,
     nudgeLeft,
     nudgeRight,
@@ -343,8 +343,8 @@ infixr 9 \/
 pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
 
-mapMaybeBot :: Applicative m => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
-mapMaybeBot f (Bot bot) = Bot $ \s i -> maybe emptyListT (bot s) (f i)
+contraMapMaybeBot :: Applicative m => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
+contraMapMaybeBot f (Bot bot) = Bot $ \s i -> maybe emptyListT (bot s) (f i)
 
 -- | Lift the @Monoid o@ unit value into @Bot m s i o@.
 -- TODO: Remove monoid and produce an empty listT Revist all 'Monoid o' decisions.
