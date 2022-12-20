@@ -309,7 +309,7 @@ infixr 9 /+\
 (/+\) ::
   Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /+\ o')
 (/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
-  interleaveListT (b1 s i) (b2 s' i) <&> \case
+  alignListT (b1 s i) (b2 s' i) <&> \case
     This (o, _s) -> (This o, (s, s'))
     That (o', _s') -> (That o', (s, s'))
     These (o, _s) (o', _s') -> (These o o', (s, s'))
@@ -321,7 +321,7 @@ infixr 9 /.\
 
 (/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
 (/.\) (Bot b1) (Bot b2) = Bot $ \(s1, s2) i -> do
-  interleaveListT (b1 s1 i) (b2 s2 i) >>= \case
+  alignListT (b1 s1 i) (b2 s2 i) >>= \case
     This (o, s1') -> pure (o, (s1', s2))
     That (o', s2') -> pure (o', (s1, s2'))
     These (o, s1') (o', s2') -> toListT [(o, (s1', s2)), (o', (s1', s2'))]
