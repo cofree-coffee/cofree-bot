@@ -59,4 +59,4 @@ updogSimpleBot = Bot $ \s i ->
    in fmap (,s) $ toListT $ runMatches matches i
 
 updogMatrixBot :: Monad m => MatrixBot m ()
-updogMatrixBot = liftSimpleBot updogSimpleBot
+updogMatrixBot = embedTextBot updogSimpleBot

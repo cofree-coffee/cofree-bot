@@ -44,7 +44,7 @@ module CofreeBot.Bot
     MatrixBot,
     matrix,
     simplifyMatrixBot,
-    liftSimpleBot,
+    embedTextBot,
 
     -- * Text Bot
     TextBot,
@@ -436,8 +436,8 @@ simplifyMatrixBot (Bot bot) = Bot $ \s i -> do
   (responses, nextState) <- bot s (RoomID mempty, mkMsg i)
   pure (viewBody $ snd responses, nextState)
 
-liftSimpleBot :: Functor m => TextBot m s -> MatrixBot m s
-liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
+embedTextBot :: Functor m => TextBot m s -> MatrixBot m s
+embedTextBot (Bot bot) = Bot $ \s (rid, i) ->
   fmap (\(i', s') -> ((rid, mkMsg i'), s')) $ bot s (viewBody i)
 
 viewBody :: Event -> T.Text

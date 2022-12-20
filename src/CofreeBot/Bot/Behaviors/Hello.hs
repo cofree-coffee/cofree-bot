@@ -24,6 +24,6 @@ helloSimpleBot = Bot $ \s msg ->
         else emptyListT
 
 -- | We can then embed our bot in the Matrix API using
--- 'liftSimpleBot'.
+-- 'embedTextBot'.
 helloMatrixBot :: Monad m => MatrixBot m ()
-helloMatrixBot = liftSimpleBot $ helloSimpleBot
+helloMatrixBot = embedTextBot $ helloSimpleBot

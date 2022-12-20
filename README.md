@@ -36,8 +36,8 @@ helloBot = Bot $ \s msg ->
 Lifting Bots Over more complex inputs and outputs
 -------------------------------------------------
 ```Haskell
-liftSimpleBot :: Functor m => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
-liftSimpleBot (Bot bot) = Bot $ \s (rid, i) ->
+embedTextBot :: Functor m => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
+embedTextBot (Bot bot) = Bot $ \s (rid, i) ->
   fmap (\(i', s') -> ((rid, mkMsg i'), s')) $ bot s (viewBody i)
 
 viewBody :: Event -> T.Text
