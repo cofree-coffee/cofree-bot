@@ -1,12 +1,12 @@
 cabal-version: 3.0
 name:          cofree-bot
 version:       0.1.0.0
-synopsis:      A chat bot for cofree.coffee
-bug-reports:   http://www.github.com/ssbothwell/cofree-bot
+synopsis:      A library for building bots compositionally. 
+bug-reports:   https://github.com/cofree-coffee/cofree-bot
 license:       MIT
-author:        Solomon and Asad
+author:        Solomon, Asad, and the Cofree-Coffee community
 maintainer:    ssbothwell@gmail.com
-category:      matrix, bot
+category:      bot, chat-bot, finite-state-machines, matrix
 
 common common-settings
   default-language:   Haskell2010
