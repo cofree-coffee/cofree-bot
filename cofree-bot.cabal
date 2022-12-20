@@ -33,8 +33,13 @@ common common-settings
     TypeOperators
 
   ghc-options:
-    -Wall -Wcpp-undef -Widentities -Wincomplete-record-updates
-    -Wincomplete-uni-patterns -Wpartial-fields
+    -Wall
+    -Wcpp-undef
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wno-name-shadowing
+    -Wpartial-fields
     -Werror=missing-home-modules
 
 common common-libraries
