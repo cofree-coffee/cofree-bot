@@ -21,7 +21,10 @@ import Language.Haskell.TH.Syntax (Lift)
 
 --------------------------------------------------------------------------------
 
-data LineType = StartInput Text | StartOutput Text | Continue Text
+data Line
+  = StartInput Text
+  | StartOutput Text
+  | Continue Text
   deriving (Show)
 
 end :: Parser ()
@@ -30,8 +33,8 @@ end = asum [void (satisfy isEndOfLine), endOfInput]
 line :: Parser Text
 line = takeWhile1 (not . isEndOfLine) <* end
 
-parseLineType :: Parser [LineType]
-parseLineType = do
+parseLines :: Parser [Line]
+parseLines = do
   many1 $
     asum
       [ fmap StartInput (skipSpace *> void ">>>" *> line),
@@ -39,17 +42,19 @@ parseLineType = do
         fmap Continue (skipSpace *> line)
       ]
 
-data Message = Input Text | Output Text
+data Message
+  = Input Text
+  | Output Text
   deriving stock (Show)
 
-following :: [LineType] -> (Text, [LineType])
+following :: [Line] -> (Text, [Line])
 following [] = ("", [])
 following (Continue l : ls) =
   let (a, b) = following ls
    in ("\n" <> l <> a, b)
 following ls = ("", ls)
 
-aggregateLines :: [LineType] -> [Message]
+aggregateLines :: [Line] -> [Message]
 aggregateLines [] = []
 aggregateLines (StartInput l0 : ls) =
   let (a, b) = following ls
@@ -69,7 +74,7 @@ aggregateScript history = Script $ reverse $ go history []
     go (Output _ : _) [] = error "Recieved an output without an input"
     go (Output o : xs) (Interaction i os : res) = go xs (Interaction i (o : os) : res)
 
-data Interaction i o = Interaction {input :: i, output :: [o]}
+data Interaction i o = Interaction {providedInput :: i, expectedOutput :: [o]}
   deriving stock (Show, Read, Eq, Ord, Lift)
 
 newtype Script = Script [Interaction Text Text]
@@ -77,7 +82,8 @@ newtype Script = Script [Interaction Text Text]
   deriving newtype (Show, Read, Eq, Ord)
 
 parseScript :: Parser Script
-parseScript = fmap (aggregateScript . aggregateLines) parseLineType
+parseScript = do
+  fmap (aggregateScript . aggregateLines) parseLines
 
 mkScript :: QuasiQuoter
 mkScript =
