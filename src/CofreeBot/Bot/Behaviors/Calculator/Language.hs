@@ -1,4 +1,5 @@
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 
 module CofreeBot.Bot.Behaviors.Calculator.Language where
@@ -15,7 +16,10 @@ import Data.Char
   ( isAlpha,
     isDigit,
   )
+#if __GLASGOW_HASKELL__ >= 902
+#else
 import Data.Foldable
+#endif
 import Data.Functor
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map
@@ -114,6 +118,9 @@ data ParseError = ParseError
   { parseInput :: T.Text,
     parseError :: T.Text
   }
+
+parseStatement :: T.Text -> Either ParseError Statement
+parseStatement txt = first (ParseError txt . T.pack) $ parseOnly statementP txt
 
 parseProgram :: T.Text -> Either ParseError Program
 parseProgram txt = first (ParseError txt . T.pack) $ parseOnly programP txt

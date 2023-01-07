@@ -32,10 +32,10 @@ parseErrorBot = pureStatelessBot $ \ParseError {..} ->
 
 simplifyCalculatorBot ::
   Monad m =>
-  Bot m s Program (Either CalcError CalcResp) ->
+  Bot m s Statement (CalcError \/ CalcResp) ->
   Bot m s T.Text T.Text
 simplifyCalculatorBot bot =
-  dimap parseProgram indistinct $ parseErrorBot \/ rmap printCalcOutput bot
+  dimap parseStatement indistinct $ parseErrorBot \/ rmap printCalcOutput bot
 
 printCalcOutput :: Either CalcError CalcResp -> T.Text
 printCalcOutput = \case
