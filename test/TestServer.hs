@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-partial-fields #-}
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
@@ -12,32 +11,19 @@ where
 
 --------------------------------------------------------------------------------
 
+import CofreeBot (Behavior)
 import CofreeBot.Bot
-  ( Behavior (Behavior),
-    Env (..),
+  ( Env (..),
     Server (..),
     annihilate,
     fixEnv,
     hoistBehavior,
-    hoistBot,
-    hoistServer,
-    liftBehavior,
-    loop,
   )
-import CofreeBot.Utils.ListT
 import Control.Monad.Except
-  ( ExceptT,
-    MonadError (..),
+  ( MonadError (..),
     MonadTrans (..),
     liftEither,
     runExceptT,
-  )
-import Control.Monad.IO.Class
-import Control.Monad.State
-  ( MonadState,
-    StateT (..),
-    gets,
-    modify,
   )
 import Data.Fix (Fix (..))
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)

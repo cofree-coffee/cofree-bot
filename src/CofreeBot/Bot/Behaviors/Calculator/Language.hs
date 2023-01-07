@@ -15,7 +15,6 @@ import Data.Char
   ( isAlpha,
     isDigit,
   )
-import Data.Foldable
 import Data.Functor
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map

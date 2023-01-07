@@ -14,6 +14,15 @@ where
 import Control.Applicative (asum)
 import Control.Monad (void)
 import Data.Attoparsec.Text
+  ( Parser,
+    endOfInput,
+    isEndOfLine,
+    many1,
+    parseOnly,
+    satisfy,
+    skipSpace,
+    takeWhile1,
+  )
 import Data.Text (Text)
 import Data.Text qualified as Text
 import Language.Haskell.TH.Quote (QuasiQuoter (..))
