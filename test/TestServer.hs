@@ -1,5 +1,12 @@
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# OPTIONS_GHC -Wno-partial-fields #-}
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 module TestServer
-  ( runTestScript,
+  ( conformsToScript',
+    conformsToScript,
+    Completion (..),
   )
 where
 
@@ -7,7 +14,13 @@ where
 
 import CofreeBot.Bot
   ( Behavior (Behavior),
+    Env (..),
     Server (..),
+    annihilate,
+    fixEnv,
+    hoistBehavior,
+    hoistBot,
+    hoistServer,
     liftBehavior,
     loop,
   )
@@ -16,8 +29,10 @@ import Control.Monad.Except
   ( ExceptT,
     MonadError (..),
     MonadTrans (..),
+    liftEither,
     runExceptT,
   )
+import Control.Monad.IO.Class
 import Control.Monad.State
   ( MonadState,
     StateT (..),
@@ -25,60 +40,59 @@ import Control.Monad.State
     modify,
   )
 import Data.Fix (Fix (..))
+import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import Data.Text (Text)
+import Data.Void
 import Scripts
+import Test.Hspec (shouldBe)
 
 --------------------------------------------------------------------------------
 
-nextInput :: Monad m => StateT ([i], [Interaction i o]) m (Maybe i)
-nextInput =
-  gets fst >>= \case
-    [] -> pure Nothing
-    (i : xs) -> do
-      modify $ \(_, os) -> (xs, os)
-      pure (Just i)
+data Completion i o
+  = Passed
+  | Failed {problematicInput :: i, expected :: [o], actual :: [o], remainder :: [Interaction i o]}
+  deriving (Show, Eq)
 
-logResult :: Monad m => i -> [o] -> StateT ([i], [Interaction i o]) m ()
-logResult i os = modify $ \(inputs, results) -> (inputs, (results <> [Interaction i os]))
+type ReplayServerState i o = Either (Completion i o) (NonEmpty (Interaction i o))
 
--- | A 'Server' which feeds a pre-programed series of inputs into
--- its paired bot.
-testServer :: Monad m => Server (StateT ([i], [Interaction i o]) m) o (Maybe i)
-testServer =
-  Server $ do
-    nextInput >>= \case
-      Nothing -> pure $ (Nothing, const $ Server $ runServer $ testServer)
-      Just input -> do
-        pure $ (Just input,) $ \os -> Server $ do
-          logResult input os
-          runServer $ testServer
+initReplayServerState :: Script -> ReplayServerState Text Text
+initReplayServerState (Script interactions) = case interactions of
+  [] -> Left Passed
+  x : xs -> Right $ x :| xs
 
-type MaybeT m = ExceptT () m
+replayServer ::
+  (Eq o, MonadError (Completion i o) m) =>
+  ReplayServerState i o ->
+  Server m o i
+replayServer = fixEnv $ Env $ (liftEither .) $ \case
+  Left completion -> Left completion
+  Right (Interaction prompt expectedResponses :| rest) -> Right $ (prompt,) $ \actualResponses ->
+    if actualResponses == expectedResponses
+      then maybe (Left Passed) Right $ nonEmpty rest
+      else
+        Left $
+          Failed
+            { problematicInput = prompt,
+              expected = expectedResponses,
+              actual = actualResponses,
+              remainder = rest
+            }
 
-boundedAnnihilation ::
-  MonadState (([i], [Interaction i o])) m =>
-  Server m o (Maybe i) ->
-  Behavior m i o ->
-  Fix (MaybeT m)
-boundedAnnihilation (Server server) b@(Behavior botBehavior) = Fix $ do
-  lift server >>= \case
-    (Nothing, _nextServer) -> throwError ()
-    (Just i, nextServer) -> do
-      xs <- lift $ fromListT $ botBehavior i
-      let o = fmap fst xs
-          server' = nextServer o
-      pure $ boundedAnnihilation server' $ case xs of
-        [] -> b
-        _ -> snd (last xs)
-
-runTestScript :: Script -> Behavior IO Text Text -> IO Script
-runTestScript (Script script) bot =
-  fmap (Script . snd . snd) $
-    flip runStateT (inputs, []) $
-      runExceptT $
-        loop $
-          boundedAnnihilation
-            testServer
-            (liftBehavior bot)
+conformsToScript' :: Behavior IO Text Text -> Script -> IO (Completion Text Text)
+conformsToScript' behavior script = do
+  let server = replayServer (initReplayServerState script)
+  fmap onlyLeft $ runExceptT $ bindFix $ annihilate server (hoistBehavior lift behavior)
   where
-    inputs = fmap input script
+    -- TODO: move these somewhere else
+    bindFix :: Monad m => Fix m -> m Void
+    bindFix (Fix m) = m >>= bindFix
+
+    onlyLeft :: Either a Void -> a
+    onlyLeft = \case
+      Left x -> x
+      Right v -> absurd v
+
+conformsToScript :: Behavior IO Text Text -> Script -> IO ()
+conformsToScript behavior script = do
+  result <- behavior `conformsToScript'` script
+  result `shouldBe` Passed
