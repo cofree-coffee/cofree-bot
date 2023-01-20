@@ -5,6 +5,7 @@ module CofreeBot.Bot.Behaviors
     module Hello,
     module Jitsi,
     module Magic8Ball,
+    module OpenAI,
     module Updog,
   )
 where
@@ -15,4 +16,5 @@ import CofreeBot.Bot.Behaviors.GHCI as GHCI
 import CofreeBot.Bot.Behaviors.Hello as Hello
 import CofreeBot.Bot.Behaviors.Jitsi as Jitsi
 import CofreeBot.Bot.Behaviors.Magic8Ball as Magic8Ball
+import CofreeBot.Bot.Behaviors.OpenAI as OpenAI
 import CofreeBot.Bot.Behaviors.Updog as Updog
