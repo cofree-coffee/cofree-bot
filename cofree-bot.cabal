@@ -67,7 +67,10 @@ executable cofree-bot
   hs-source-dirs: app
   build-depends:
     , cofree-bot
+    , http-client
+    , http-client-tls
     , mtl
+    , openai-hs
     , optparse-applicative
     , xdg-basedir
 
@@ -93,6 +96,7 @@ library
     CofreeBot.Bot.Behaviors.Jitsi
     CofreeBot.Bot.Behaviors.Jitsi.Dictionary
     CofreeBot.Bot.Behaviors.Magic8Ball
+    CofreeBot.Bot.Behaviors.OpenAI
     CofreeBot.Bot.Behaviors.Updog
     CofreeBot.Bot.Context
     CofreeBot.Utils
@@ -110,8 +114,10 @@ library
     , lens
     , monad-loops
     , mtl
+    , openai-hs
     , pretty-simple
     , process
+    , QuasiText
     , random
     , vector
     , xdg-basedir

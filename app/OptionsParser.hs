@@ -1,5 +1,6 @@
 module OptionsParser where
 
+import Control.Applicative
 import Data.Text qualified as T
 import Network.Matrix.Client
 import Options.Applicative qualified as Opt
@@ -93,11 +94,27 @@ parseServer =
             "Matrix Homeserver"
       )
 
+-----------------------
+--- Behavior Config ---
+-----------------------
+
+newtype OpenAIKey = OpenAIKey T.Text
+
+parseOpenAIKey :: Opt.Parser OpenAIKey
+parseOpenAIKey =
+  OpenAIKey
+    <$> Opt.strOption
+      ( Opt.long "openai_key"
+          <> Opt.metavar "OPENAI_KEY"
+          <> Opt.help
+            "OpenAI API Key"
+      )
+
 -------------------
 --- Main Parser ---
 -------------------
 
-data Command = LoginCmd LoginCredentials | TokenCmd TokenCredentials | CLI
+data Command = LoginCmd LoginCredentials OpenAIKey | TokenCmd TokenCredentials OpenAIKey | CLI OpenAIKey
 
 mainParser :: Opt.Parser Command
 mainParser =
@@ -105,18 +122,18 @@ mainParser =
     ( Opt.command
         "gen-token"
         ( Opt.info
-            (fmap LoginCmd parseLogin)
+            (liftA2 LoginCmd parseLogin parseOpenAIKey)
             (Opt.progDesc "Generate a token from a username/password")
         )
         <> Opt.command
           "run"
           ( Opt.info
-              (fmap TokenCmd parseTokenCredentials)
+              (liftA2 TokenCmd parseTokenCredentials parseOpenAIKey)
               (Opt.progDesc "Run the bot with an auth token")
           )
         <> Opt.command
           "cli"
-          (Opt.info (pure CLI) (Opt.progDesc "Run the bot in the CLI"))
+          (Opt.info (fmap CLI parseOpenAIKey) (Opt.progDesc "Run the bot in the CLI"))
     )
 
 parserInfo :: Opt.ParserInfo Command
