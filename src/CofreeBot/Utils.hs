@@ -22,6 +22,7 @@ module CofreeBot.Utils
     -- * Misc
     distinguish,
     PointedChoice (..),
+    (...),
   )
 where
 
@@ -103,3 +104,9 @@ distinguish f x
 class PointedChoice p where
   pleft :: p a b -> p (x \*/ a) (x \*/ b)
   pright :: p a b -> p (a \*/ x) (b \*/ x)
+
+infixr 9 ...
+
+-- | The blackbird operator.
+(...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
+(...) = (.) . (.)

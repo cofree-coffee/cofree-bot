@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE ViewPatterns #-}
 
 -- | A bot for general interactions with OpenAI's GPT LLM.
@@ -10,6 +11,7 @@ where
 --------------------------------------------------------------------------------
 
 import CofreeBot.Bot
+import CofreeBot.Utils ((...))
 import CofreeBot.Utils.ListT (emptyListT)
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.Reader (ReaderT (..), ask)
@@ -19,19 +21,36 @@ import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector qualified as V
 import OpenAI.Client qualified as OpenAI
+import Text.QuasiText qualified as QT
 
 --------------------------------------------------------------------------------
 
-openAIBot :: Bot (ReaderT OpenAI.OpenAIClient IO) () Text Text
+data Interaction = Interaction {prompt :: Text, completion :: Text}
+  deriving (Show, Read)
+
+prettyInteraction :: Interaction -> Text
+prettyInteraction Interaction {..} =
+  [QT.embed|
+User: $prompt
+Cofree-bot: $completion
+
+|]
+
+prettyHistory :: [Interaction] -> Text
+prettyHistory = foldMap prettyInteraction
+
+openAIBot :: Bot (ReaderT OpenAI.OpenAIClient IO) [Interaction] Text Text
 openAIBot =
   contraMapMaybeBot (either (const Nothing) Just . parseOnly openAIBotParser) $
-    Bot $ \() (buildPrompt -> i) -> do
+    Bot $ \history i -> do
+      let prompt = buildPrompt i history
       client <- lift ask
-      liftIO (callOpenAI client i) >>= \case
+      liftIO (callOpenAI client prompt) >>= \case
         Left err -> liftIO (print err) >> emptyListT
         Right OpenAI.TextCompletion {tcChoices} ->
           let OpenAI.TextCompletionChoice {..} = V.head tcChoices
-           in pure (T.strip tccText, ())
+              response = T.strip tccText
+           in pure (response, Interaction i response : history)
 
 runOpenAIBot :: Functor m => r -> Bot (ReaderT r m) s i o -> Bot m s i o
 runOpenAIBot r bot = hoistBot (`runReaderT` r) bot
@@ -39,10 +58,24 @@ runOpenAIBot r bot = hoistBot (`runReaderT` r) bot
 callOpenAI :: OpenAI.OpenAIClient -> OpenAI.TextCompletionCreate -> IO (Either OpenAI.ClientError OpenAI.TextCompletion)
 callOpenAI client i = OpenAI.completeText client (OpenAI.EngineId "text-davinci-003") (i {OpenAI.tccrMaxTokens = Just 2096})
 
-buildPrompt :: Text -> OpenAI.TextCompletionCreate
-buildPrompt input =
-  let preamble = "You are a friendly chat bot named Cofree-Bot on a server dedicated to functional programming. Please respond to the following prompt:"
-   in OpenAI.defaultTextCompletionCreate $ preamble <> input
+preamble :: Text -> [Interaction] -> Text
+preamble prompt (prettyHistory -> history) =
+  [QT.embed|
+Chat History:
+```
+$history
+```
+
+You are a friendly chat bot named Cofree-Bot on a server dedicated to functional programming.
+Given the Chat History defined above, please respond to the following prompt, but do not prepend your statmements with your name:
+
+```
+$prompt
+```
+|]
+
+buildPrompt :: Text -> [Interaction] -> OpenAI.TextCompletionCreate
+buildPrompt = OpenAI.defaultTextCompletionCreate ... preamble
 
 openAIBotParser :: Parser Text
 openAIBotParser = do
