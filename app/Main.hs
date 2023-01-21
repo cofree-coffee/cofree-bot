@@ -46,7 +46,7 @@ bot process manager (OpenAIKey aiKey) =
       coinFlipBot' = embedTextBot $ simplifyCoinFlipBot coinFlipBot
       ghciBot' = embedTextBot $ ghciBot process
       magic8BallBot' = embedTextBot $ simplifyMagic8BallBot magic8BallBot
-      openAIBot' = openAIBot $ makeOpenAIClient aiKey manager 2
+      openAIBot' = runOpenAIBot (makeOpenAIClient aiKey manager 2) openAIBot 
    in calcBot
         /.\ coinFlipBot'
         /.\ helloBot
