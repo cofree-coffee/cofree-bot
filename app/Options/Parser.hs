@@ -1,12 +1,20 @@
-module OptionsParser where
+module Options.Parser
+  ( Command (..),
+    mainParser,
+    parserInfo,
+  )
+where
 
-import Data.Text qualified as T
+--------------------------------------------------------------------------------
+
+import Data.Functor.Barbie (bsequence)
+import Data.Functor.Compose (Compose (..))
 import Network.Matrix.Client
 import Options.Applicative qualified as Opt
+import Options.Types (ClientSessionF (..), MatrixServer (..))
 
----------------------
---- Login Command ---
----------------------
+--------------------------------------------------------------------------------
+-- Login Command
 
 parseLogin :: Opt.Parser LoginCredentials
 parseLogin =
@@ -59,19 +67,16 @@ parseInitialDeviceName =
               "A display name to assign to the newly-created device. Ignored if device_id corresponds to a known device."
         )
 
----------------------
---- Token Command ---
----------------------
+--------------------------------------------------------------------------------
+-- Token Command
 
-data TokenCredentials = TokenCredentials
-  { matrixToken :: MatrixToken,
-    matrixServer :: MatrixServer
-  }
-
-newtype MatrixServer = MatrixServer {getMatrixServer :: T.Text}
-
-parseTokenCredentials :: Opt.Parser TokenCredentials
-parseTokenCredentials = TokenCredentials <$> parseToken <*> parseServer
+fromArgv :: Opt.Parser (ClientSessionF Maybe)
+fromArgv =
+  bsequence $
+    ClientSessionF
+      { matrixServer = Compose $ Opt.optional parseServer,
+        matrixToken = Compose $ Opt.optional parseToken
+      }
 
 parseToken :: Opt.Parser MatrixToken
 parseToken =
@@ -93,11 +98,10 @@ parseServer =
             "Matrix Homeserver"
       )
 
--------------------
---- Main Parser ---
--------------------
+--------------------------------------------------------------------------------
+-- Main Parser
 
-data Command = LoginCmd LoginCredentials | TokenCmd TokenCredentials | CLI
+data Command = LoginCmd LoginCredentials | TokenCmd (ClientSessionF Maybe) | CLI
 
 mainParser :: Opt.Parser Command
 mainParser =
@@ -111,7 +115,7 @@ mainParser =
         <> Opt.command
           "run"
           ( Opt.info
-              (fmap TokenCmd parseTokenCredentials)
+              (fmap TokenCmd fromArgv)
               (Opt.progDesc "Run the bot with an auth token")
           )
         <> Opt.command

@@ -3,8 +3,10 @@ services:
   cofree-bot:
     image: ghcr.io/cofree-coffee/cofree-bot:latest
     environment:
-      - AUTH_TOKEN=$AUTH_TOKEN
+      - COFREE_BOT_MATRIX_TOKEN=$COFREE_BOT_MATRIX_TOKEN
+      - COFREE_BOT_MATRIX_SERVER=$COFREE_BOT_MATRIX_SERVER
       - XDG_CACHE_HOME=/cache
+      - XDG_CONFIG_HOME=/config
     deploy:
       restart_policy:
         condition: on-failure
@@ -12,6 +14,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.docker/config.json:/config.json
       - bot_cache:/cache
+      - bot_config:/config
   watchtower:
     image: containrrr/watchtower
     volumes:
@@ -23,3 +26,4 @@ services:
         condition: on-failure
 volumes:
   bot_cache:
+  bot_config:

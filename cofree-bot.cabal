@@ -66,12 +66,22 @@ executable cofree-bot
   main-is:        Main.hs
   hs-source-dirs: app
   build-depends:
+    , aeson
+    , barbies
     , cofree-bot
+    , directory
+    , filepath
     , mtl
     , optparse-applicative
     , xdg-basedir
+    , yaml
 
-  other-modules:  OptionsParser
+  other-modules:
+    , Options
+    , Options.Env
+    , Options.Config
+    , Options.Types
+    , Options.Parser
 
 --------------------------------------------------------------------------------
 
