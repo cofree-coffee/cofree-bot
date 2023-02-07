@@ -1,5 +1,4 @@
 {
-
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
@@ -37,7 +36,9 @@
         # cabal2nix uses IFD
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
-            cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. { };
+            chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
+            chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
+            cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
           };
         };
 
@@ -57,7 +58,9 @@
             ghcid
             haskell.compiler.${compiler}
             haskell.packages.${compiler}.haskell-language-server
+            nixpkgs-fmt
             ormolu
+            shellcheck
             zlib
           ] ++ (builtins.attrValues scripts);
         };
@@ -67,6 +70,8 @@
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
+          chat-bots = hsPkgs.chat-bots;
+          chat-bots-contrib = hsPkgs.chat-bots-contrib;
           cofree-bot = hsPkgs.cofree-bot;
         };
 

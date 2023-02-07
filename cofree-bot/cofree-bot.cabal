@@ -1,0 +1,73 @@
+cabal-version: 3.0
+name:          cofree-bot
+version:       0.1.0.0
+synopsis:      The cofree.coffee matrix bot
+bug-reports:   https://github.com/cofree-coffee/cofree-bot
+license:       MIT
+author:        Solomon, Asad, and the cofree-coffee community
+maintainer:    ssbothwell@gmail.com
+category:      bot, chat-bot, finite-state-machines, matrix
+
+--------------------------------------------------------------------------------
+
+executable cofree-bot
+  main-is:        Main.hs
+  hs-source-dirs: app
+  build-depends:
+    , aeson
+    , barbies
+    , base           >=2 && <5
+    , bytestring
+    , chat-bots
+    , chat-bots-contrib
+    , directory
+    , filepath
+    , matrix-client
+    , mtl
+    , network-uri
+    , optparse-applicative
+    , profunctors
+    , text
+    , these
+    , typed-process
+    , xdg-basedir
+    , yaml
+
+  other-modules:
+    , Options
+    , Options.Env
+    , Options.Config
+    , Options.Types
+    , Options.Parser
+
+  ghc-options:
+    -Wall
+    -Wcpp-undef
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Werror=missing-home-modules
+
+  default-language:   Haskell2010
+  default-extensions:
+    DataKinds
+    DeriveFunctor
+    DeriveGeneric
+    DerivingVia
+    FlexibleContexts
+    FlexibleInstances
+    GeneralizedNewtypeDeriving
+    ImportQualifiedPost
+    InstanceSigs
+    LambdaCase
+    NamedFieldPuns
+    OverloadedStrings
+    PatternSynonyms
+    RecordWildCards
+    ScopedTypeVariables
+    StandaloneKindSignatures
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeOperators

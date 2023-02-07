@@ -1,5 +1,7 @@
-packages: *
-          
+packages: chat-bots
+packages: chat-bots-contrib 
+packages: cofree-bot
+                    
 source-repository-package
   type: git
   location: https://github.com/softwarefactory-project/matrix-client-haskell.git

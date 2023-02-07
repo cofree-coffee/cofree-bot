@@ -1,7 +1,9 @@
 resolver: lts-20.1
 
 packages:
-- .
+- ./chat-bots
+- ./chat-bots-contrib
+- ./cofree-bot
 
 extra-deps:
 - git: https://github.com/cofree-coffee/matrix-client-haskell.git
