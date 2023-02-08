@@ -3,10 +3,10 @@ services:
   cofree-bot:
     image: ghcr.io/cofree-coffee/cofree-bot:latest
     environment:
-      - COFREE_BOT_MATRIX_TOKEN=$COFREE_BOT_MATRIX_TOKEN
-      - COFREE_BOT_MATRIX_SERVER=$COFREE_BOT_MATRIX_SERVER
-      - XDG_CACHE_HOME=/cache
-      - XDG_CONFIG_HOME=/config
+      COFREE_BOT_MATRIX_TOKEN: ${COFREE_BOT_MATRIX_TOKEN}
+      COFREE_BOT_MATRIX_SERVER: ${COFREE_BOT_MATRIX_SERVER}
+      XDG_CACHE_HOME: /cache
+      XDG_CONFIG_HOME: /config
     deploy:
       restart_policy:
         condition: on-failure

@@ -7,6 +7,7 @@ pkgs.dockerTools.buildLayeredImage {
   contents = [
     pkgs.bash
     pkgs.cacert
+    pkgs.coreutils
     pkgs.docker-client
   ];
   config = {

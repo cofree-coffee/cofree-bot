@@ -66,7 +66,7 @@ toClientSession ClientSessionF {..} = do
 --------------------------------------------------------------------------------
 
 newtype MatrixServer = MatrixServer {getMatrixServer :: Text}
-  deriving newtype (Read, FromJSON, ToJSON)
+  deriving newtype (Show, Read, FromJSON, ToJSON)
 
 instance FromJSON MatrixToken where
   parseJSON = Aeson.withText "MatrixToken" (pure . MatrixToken)
