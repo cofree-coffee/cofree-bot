@@ -10,45 +10,7 @@ category:      bot, chat-bot, finite-state-machines, matrix
 
 --------------------------------------------------------------------------------
 
-executable cofree-bot
-  main-is:        Main.hs
-  hs-source-dirs: app
-  build-depends:
-    , aeson
-    , barbies
-    , base           >=2 && <5
-    , bytestring
-    , chat-bots
-    , chat-bots-contrib
-    , directory
-    , filepath
-    , matrix-client
-    , mtl
-    , network-uri
-    , optparse-applicative
-    , profunctors
-    , text
-    , these
-    , typed-process
-    , xdg-basedir
-    , yaml
-
-  other-modules:
-    , Options
-    , Options.Env
-    , Options.Config
-    , Options.Types
-    , Options.Parser
-
-  ghc-options:
-    -Wall
-    -Wcpp-undef
-    -Widentities
-    -Wincomplete-record-updates
-    -Wincomplete-uni-patterns
-    -Wpartial-fields
-    -Werror=missing-home-modules
-
+common common-settings
   default-language:   Haskell2010
   default-extensions:
     DataKinds
@@ -71,3 +33,82 @@ executable cofree-bot
     TypeApplications
     TypeFamilies
     TypeOperators
+
+  ghc-options:
+    -Wall
+    -Wcpp-undef
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Werror=missing-home-modules
+
+--------------------------------------------------------------------------------
+
+common common-libraries
+  build-depends:
+    , aeson
+    , barbies
+    , base           >=2 && <5
+    , bytestring
+    , chat-bots
+    , chat-bots-contrib
+    , directory
+    , filepath
+    , matrix-client
+    , mtl
+    , network-uri
+    , optparse-applicative
+    , profunctors
+    , text
+    , these
+    , typed-process
+    , xdg-basedir
+    , yaml
+
+--------------------------------------------------------------------------------
+
+executable cofree-bot
+  import:
+    , common-settings
+    , common-libraries
+  main-is:        Main.hs
+  hs-source-dirs: app
+  build-depends:
+    , cofree-bot
+
+--------------------------------------------------------------------------------
+
+library
+  import:
+    , common-settings
+    , common-libraries
+
+  hs-source-dirs: src
+  exposed-modules:
+    Options
+    Options.Env
+    Options.Config
+    Options.Types
+    Options.Parser
+
+--------------------------------------------------------------------------------
+
+test-suite cofree-bot-test
+  import:
+    , common-settings
+
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+
+  build-depends:
+    , base           >=2 && <5
+    , cofree-bot
+    , chat-bots
+    , chat-bots-contrib
+    , hedgehog
+    , hspec
+    , hspec-core
+    , hspec-hedgehog
+    , text

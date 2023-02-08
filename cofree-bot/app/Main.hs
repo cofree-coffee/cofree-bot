@@ -38,12 +38,16 @@ main = do
       session <- login cred
       matrixMain session xdgCache
     TokenCmd clientSessionArgv -> do
+      putStrLn "Loading Config"
       clientSessionEnv <- fromEnv
       clientSessionConfigFile <- fromConfig
+      putStrLn "Starting Cofree-Bot"
       toClientSession (fold [clientSessionArgv, clientSessionEnv, clientSessionConfigFile]) >>= \case
         Just session -> matrixMain session xdgCache
-        Nothing -> error "Invaid Client Session"
-    CLI -> cliMain xdgCache
+        Nothing -> error "Invalid Client Session"
+    CLI -> do
+      putStrLn "Starting Cofree-Bot"
+      cliMain xdgCache
 
 --------------------------------------------------------------------------------
 
