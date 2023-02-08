@@ -15,7 +15,6 @@ import Options.Types
 import System.Environment (lookupEnv)
 
 --------------------------------------------------------------------------------
--- Env
 
 readEnv :: (Text -> a) -> String -> (IO `Compose` Maybe) a
 readEnv cstr envKey = Compose $ fmap (cstr . Text.pack) <$> lookupEnv envKey
