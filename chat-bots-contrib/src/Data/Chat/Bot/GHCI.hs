@@ -16,7 +16,6 @@ where
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Loops (whileM)
-import Data.Attoparsec.Text as A
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization (TextSerializer)
 import Data.Chat.Bot.Serialization qualified as S
@@ -41,10 +40,7 @@ ghciBot p = Bot $
 --------------------------------------------------------------------------------
 
 ghciSerializer :: TextSerializer Text Text
-ghciSerializer = S.Serializer {parser, printer = id}
-
-parser :: Text -> Maybe Text
-parser = either (const Nothing) Just . parseOnly ("ghci:" *> takeText)
+ghciSerializer = S.prefix "ghci" S.Serializer {parser = pure, printer = id}
 
 --------------------------------------------------------------------------------
 

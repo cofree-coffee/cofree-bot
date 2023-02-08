@@ -4,7 +4,9 @@ module Data.Chat.Bot.Serialization where
 --------------------------------------------------------------------------------
 
 import Control.Applicative (liftA2)
+import Control.Monad ((>=>))
 import Control.Monad.ListT (emptyListT)
+import Data.Attoparsec.Text qualified as P
 import Data.Bifunctor (first)
 import Data.Chat.Bot (Bot (..))
 import Data.Chat.Utils (can, type (/+\))
@@ -32,13 +34,16 @@ data Serializer so si bo bi = Serializer
 -- | A 'Serializer' whose 'Server' I/O has been specialized to 'Text'.
 type TextSerializer = Serializer Text Text
 
--- | P
+-- | Extend the parser portion of a 'TextSerializer' to consume a
+-- prefix string.
 prefix :: Text -> TextSerializer x y -> TextSerializer x y
 prefix prefix' Serializer {..} =
-  Serializer
-    { parser = \so -> parser (prefix' <> ": " <> so),
-      printer = \bo -> prefix' <> ":" <> printer bo
-    }
+  let prefixParser = P.string prefix' *> ":" *> P.skipSpace *> P.takeText
+      parsePrefix = either (const Nothing) Just . P.parseOnly prefixParser
+   in Serializer
+        { parser = parsePrefix >=> parser,
+          printer = printer
+        }
 
 infixr 6 /+\
 
