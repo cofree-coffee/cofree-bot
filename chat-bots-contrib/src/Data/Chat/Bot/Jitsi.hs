@@ -1,5 +1,9 @@
 module Data.Chat.Bot.Jitsi
-  ( jitsiBot,
+  ( -- * Bot
+    jitsiBot,
+
+    -- * Serializer,
+    jitsiSerializer,
   )
 where
 
@@ -7,12 +11,24 @@ where
 
 import Data.Chat.Bot
 import Data.Chat.Bot.Jitsi.Dictionary
-import Data.Chat.Bot.Monoidal
-import Data.Chat.Utils (indistinct)
-import Data.Profunctor
+import Data.Chat.Bot.Serialization (TextSerializer)
+import Data.Chat.Bot.Serialization qualified as S
 import Data.Text (Text)
 import Data.Vector qualified as V
-import System.Random
+import System.Random (randomRIO)
+
+--------------------------------------------------------------------------------
+
+jitsiBot :: Bot IO () () Text
+jitsiBot = liftEffect jitsiUrl
+
+--------------------------------------------------------------------------------
+
+jitsiSerializer :: TextSerializer Text ()
+jitsiSerializer = S.Serializer {parser, printer = id}
+
+parser :: Text -> Maybe ()
+parser i = if (i == "🍐" || i == "pair" || i == "pair") then Just () else Nothing
 
 --------------------------------------------------------------------------------
 
@@ -21,21 +37,11 @@ pickRandomElement vs = do
   i <- randomRIO (0, V.length vs)
   pure $ vs V.! i
 
-jitsiBot' :: IO Text
-jitsiBot' = do
+jitsiUrl :: IO Text
+jitsiUrl = do
   adjective <- pickRandomElement adjectives
   noun <- pickRandomElement pluralNouns
   verb <- pickRandomElement verbs
   adverb <- pickRandomElement adverbs
   let url = "https://meet.jit.si/" <> adjective <> noun <> verb <> adverb
   pure $ url
-
-jitsiBot :: Bot IO () Text Text
-jitsiBot =
-  dimap
-    ( \i ->
-        if (i == "🍐" || i == "pair" || i == "pair") then Right () else Left ()
-    )
-    indistinct
-    $ emptyBot
-      \/ liftEffect jitsiBot'
