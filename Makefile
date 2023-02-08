@@ -110,4 +110,4 @@ clean: $(GENERATED_CABAL_FILES)
 ## test-no-backends
 # the leftover tests with no particular backend, like Remote Schemas
 test: 
-	cabal run chat-bots-contrib-test
+	cabal test all
