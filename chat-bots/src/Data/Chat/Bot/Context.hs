@@ -18,25 +18,23 @@ module Data.Chat.Bot.Context
     SessionInput (..),
     SessionOutput (..),
     sessionize,
-    simplifySessionBot,
+    sessionSerializer,
   )
 where
 
 --------------------------------------------------------------------------------
 
 import Control.Applicative
-import Control.Arrow qualified as Arrow
-import Control.Monad.ListT (emptyListT)
 import Data.Attoparsec.Text
-import Data.Bifunctor (Bifunctor (first))
 import Data.Chat.Bot
-import Data.IntMap.Strict (IntMap)
+import Data.Chat.Bot.Serialization (TextSerializer)
+import Data.Chat.Bot.Serialization qualified as S
+import Data.IntMap (IntMap)
 import Data.IntMap.Strict qualified as IntMap
-import Data.Kind (Type)
 import Data.Profunctor (second')
 import Data.Text (Text)
 import Data.Text qualified as Text
-import Network.Matrix.Client
+import Network.Matrix.Client (RoomID, UserID)
 
 --------------------------------------------------------------------------------
 
@@ -62,21 +60,6 @@ mkUserAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
 mkUserAware = second'
 
 --------------------------------------------------------------------------------
-
--- | A map of states @s@ used to track sessions in a "sessionized" bot.
-newtype SessionState s = SessionState {sessions :: IntMap s}
-  deriving newtype (Show, Read, Semigroup, Monoid)
-
-freshSessionKey :: IntMap a -> Int
-freshSessionKey state = case IntMap.lookupMax state of
-  Nothing -> 0
-  Just (k, _) -> k + 1
-
--- | Expand the input type @i@ to include session interaction meta commands.
-data SessionInput i = InteractWithSession Int i | StartSession | EndSession Int
-
--- | Expand the output type @o@ to include session interaction meta commands.
-data SessionOutput o = SessionOutput Int o | SessionStarted Int | SessionEnded Int | InvalidSession Int
 
 -- | Enable sessions for a 'Bot'.
 --
@@ -111,48 +94,56 @@ sessionize defaultState (Bot bot) = Bot $ \(SessionState s) si -> case si of
           (SessionOutput k responses)
           (SessionState $ IntMap.insert k nextState s)
 
+--------------------------------------------------------------------------------
+
+-- | A map of states @s@ used to track sessions in a "sessionized" bot.
+newtype SessionState s = SessionState {sessions :: IntMap s}
+  deriving newtype (Show, Read, Semigroup, Monoid)
+
+freshSessionKey :: IntMap a -> Int
+freshSessionKey state = case IntMap.lookupMax state of
+  Nothing -> 0
+  Just (k, _) -> k + 1
+
+-- | Expand the input type @i@ to include session interaction meta commands.
+data SessionInput i = InteractWithSession Int i | StartSession | EndSession Int
+
+-- | Expand the output type @o@ to include session interaction meta commands.
+data SessionOutput o = SessionOutput Int o | SessionStarted Int | SessionEnded Int | InvalidSession Int
+
+--------------------------------------------------------------------------------
+
+sessionSerializer :: TextSerializer o i -> TextSerializer (SessionOutput o) (SessionInput i)
+sessionSerializer S.Serializer {parser = parser', printer = printer'} =
+  S.Serializer {parser = parser parser', printer = printer printer'}
+
+printer :: (o -> Text) -> SessionOutput o -> Text
+printer p = \case
+  SessionOutput n o ->
+    "Session '" <> Text.pack (show n) <> "' Output:\n" <> p o
+  SessionStarted n -> "Session Started: '" <> Text.pack (show n) <> "'."
+  SessionEnded n -> "Session Ended: '" <> Text.pack (show n) <> "'."
+  InvalidSession n -> "Invalid Session: '" <> Text.pack (show n) <> "'."
+
+parser :: (Text -> Maybe i) -> Text -> Maybe (SessionInput i)
+parser p = either (const Nothing) Just . parseOnly (sessionizedParser p)
+
 data Nue = New | Use | End
 
-parseSessionInfo :: Parser i -> Parser (SessionInput i)
-parseSessionInfo p = do
+sessionizedParser :: (Text -> Maybe i) -> Parser (SessionInput i)
+sessionizedParser p = do
   keyword <- New <$ "new" <|> Use <$ "use" <|> End <$ "end"
   case keyword of
     New -> pure StartSession
     Use -> do
       _ <- space
       n <- decimal <* ": "
-      i <- p
+      mi <- fmap p takeText
       -- endOfLine
-      pure $ InteractWithSession n i
+      case mi of
+        Just i -> pure $ InteractWithSession n i
+        Nothing -> fail "bad parse"
     End -> do
       _ <- space
       n <- decimal
       pure $ EndSession n
-
--- | Sessionized bots require a parsable input and printable output.
---
--- Given a printer @o -> Text@ and a @Parser i@, convert the
--- sessionized bot into a 'Bot m s Text Text' which can then be further composed
--- with other bots.
-simplifySessionBot ::
-  forall m s i o.
-  (Show s, Monad m) =>
-  (o -> Text) ->
-  Parser i ->
-  Bot m s (SessionInput i) (SessionOutput o) ->
-  Bot m s Text Text
-simplifySessionBot tshow p (Bot bot) = Bot $ \s i -> do
-  case to i of
-    Left _ -> emptyListT
-    Right si -> fmap (Arrow.first from) $ bot s si
-  where
-    to :: Text -> Either Text (SessionInput i)
-    to = fmap (first Text.pack) $ parseOnly $ parseSessionInfo p
-
-    from :: SessionOutput o -> Text
-    from = \case
-      SessionOutput n o ->
-        "Session '" <> Text.pack (show n) <> "' Output:\n" <> tshow o
-      SessionStarted n -> "Session Started: '" <> Text.pack (show n) <> "'."
-      SessionEnded n -> "Session Ended: '" <> Text.pack (show n) <> "'."
-      InvalidSession n -> "Invalid Session: '" <> Text.pack (show n) <> "'."

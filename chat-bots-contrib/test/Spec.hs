@@ -7,13 +7,9 @@ module Main where
 
 import Data.Chat.Bot (Behavior, Bot (..), fixBot)
 import Data.Chat.Bot.Calculator
-  ( calculatorBot,
-    printCalcOutput,
-    simplifyCalculatorBot,
-  )
-import Data.Chat.Bot.Calculator.Language (statementP)
-import Data.Chat.Bot.Context (sessionize, simplifySessionBot)
-import Data.Chat.Bot.Hello (helloSimpleBot)
+import Data.Chat.Bot.Context (sessionSerializer, sessionize)
+import Data.Chat.Bot.Hello
+import Data.Chat.Bot.Serialization qualified as S
 import Data.Text (Text, pack)
 import Scripts (Script, mkScript)
 import Test.Hspec (Spec, describe, hspec, it, shouldNotBe)
@@ -57,7 +53,7 @@ scriptedTestsSpec = describe "Scripted tests" $ do
 helloBotSpec :: Spec
 helloBotSpec =
   describe "Hello Bot" $ do
-    let bot = helloSimpleBot
+    let bot = S.applySerializer helloBot helloBotSerializer
     it "responds to precisely its trigger phrase" $ do
       fixBot bot ()
         `conformsToScript` [mkScript|
@@ -75,7 +71,7 @@ helloBotSpec =
 calculatorBotSpec :: Spec
 calculatorBotSpec =
   describe "Calculator Bot" $ do
-    let bot = simplifyCalculatorBot calculatorBot
+    let bot = S.applySerializer calculatorBot calculatorSerializer
     it "performs arithmetic" $ do
       fixBot bot mempty
         `conformsToScript` [mkScript|
@@ -99,7 +95,7 @@ calculatorBotSpec =
 sessionizedBotSpec :: Spec
 sessionizedBotSpec =
   describe "Sessionized Bot" $ do
-    let bot = simplifySessionBot printCalcOutput statementP $ sessionize mempty $ calculatorBot
+    let bot = S.applySerializer (sessionize mempty calculatorBot) (sessionSerializer calculatorSerializer)
     it "can instantiate a session" $ do
       fixBot bot mempty
         `conformsToScript` [mkScript|

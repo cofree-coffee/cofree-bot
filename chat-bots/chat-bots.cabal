@@ -68,11 +68,11 @@ library
     Data.Chat.Bot
     Data.Chat.Bot.Monoidal
     Data.Chat.Bot.Context
+    Data.Chat.Bot.Serialization
     Data.Chat.Server
     Data.Chat.Server.Repl
     Data.Chat.Utils
     Control.Monad.ListT
-    Parsing
 
   build-depends:
     , aeson

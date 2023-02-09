@@ -1,11 +1,15 @@
 {-# LANGUAGE NumDecimals #-}
+{-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 module Main where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad (void, (>=>))
-import Control.Monad.Except (ExceptT, runExceptT)
+import Control.Monad
+import Control.Monad.Except
+  ( ExceptT,
+    runExceptT,
+  )
 import Control.Monad.IO.Class (liftIO)
 import Data.Chat.Bot
 import Data.Chat.Bot.Calculator
@@ -16,6 +20,7 @@ import Data.Chat.Bot.Hello
 import Data.Chat.Bot.Jitsi
 import Data.Chat.Bot.Magic8Ball
 import Data.Chat.Bot.Monoidal
+import Data.Chat.Bot.Serialization qualified as S
 import Data.Chat.Bot.Updog
 import Data.Chat.Server
 import Data.Chat.Server.Matrix
@@ -27,6 +32,8 @@ import Options
 import Options.Applicative qualified as Opt
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Process.Typed (getStdout, withProcessWait_)
+
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 
@@ -51,23 +58,29 @@ main = do
 
 --------------------------------------------------------------------------------
 
-bot process =
-  let calcBot =
-        embedTextBot $
-          simplifySessionBot printCalcOutput statementP $
-            sessionize mempty $
-              calculatorBot
-      helloBot = helloMatrixBot
-      coinFlipBot' = embedTextBot $ simplifyCoinFlipBot coinFlipBot
-      ghciBot' = embedTextBot $ ghciBot process
-      magic8BallBot' = embedTextBot $ simplifyMagic8BallBot magic8BallBot
-   in calcBot
-        /.\ coinFlipBot'
-        /.\ helloBot
-        /.\ ghciBot'
-        /.\ magic8BallBot'
-        /.\ updogMatrixBot
-        /.\ embedTextBot jitsiBot
+--------------------------------------------------------------------------------
+
+bot' process =
+  helloBot @_ @() -- <----- polymorphic states need to get asserted to a monoid
+    /+\ updogBot @_ @()
+    /+\ coinFlipBot
+    /+\ magic8BallBot
+    /+\ jitsiBot
+    /+\ ghciBot process
+    /+\ sessionize mempty calculatorBot
+
+serializer' =
+  helloBotSerializer
+    S./+\ updogSerializer
+    S./+\ coinFlipSerializer
+    S./+\ magic8BallSerializer
+    S./+\ jitsiSerializer
+    S./+\ ghciSerializer
+    S./+\ sessionSerializer calculatorSerializer
+
+bot process = S.applySerializer (bot' process) serializer'
+
+--------------------------------------------------------------------------------
 
 --------------------------------------------------------------------------------
 
@@ -76,7 +89,7 @@ cliMain xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   state <- readState xdgCache
-  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ simplifyMatrixBot $ bot process
+  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ bot process
   void $ loop $ annihilate repl fixedBot
 
 --------------------------------------------------------------------------------
@@ -89,5 +102,5 @@ matrixMain session xdgCache = withProcessWait_ ghciConfig $ \process -> do
   void $ threadDelay 1e6
   void $ hGetOutput (getStdout process)
   state <- readState xdgCache
-  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ hoistBot liftIO $ bot process
-  unsafeCrashInIO $ loop $ annihilate (matrix session xdgCache) $ batch fixedBot
+  fixedBot <- flip (fixBotPersistent xdgCache) (fold state) $ embedTextBot $ hoistBot liftIO $ bot process
+  unsafeCrashInIO $ loop $ annihilate (matrix session xdgCache) $ batch $ fixedBot
