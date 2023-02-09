@@ -67,7 +67,9 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Data.Align2
+    Data.Functor.HKD
     Data.Bifunctor.Const2
+    Data.Bifunctor.HKD
     Data.Trifunctor.Barbie
     Data.Chat.Bot
     Data.Chat.Bot.Monoidal
@@ -89,6 +91,7 @@ library
     , http-client
     , lens
     , monad-loops
+    , monoidal-functors
     , mtl
     , pretty-simple
     , process

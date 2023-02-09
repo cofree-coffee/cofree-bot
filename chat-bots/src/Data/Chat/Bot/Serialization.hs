@@ -7,11 +7,12 @@ import Control.Applicative (liftA2)
 import Control.Monad ((>=>))
 import Control.Monad.ListT (emptyListT)
 import Data.Attoparsec.Text qualified as P
-import Data.Bifunctor (first)
+import Data.Bifunctor (first, Bifunctor (..))
 import Data.Chat.Bot (Bot (..))
 import Data.Chat.Utils (can, type (/+\))
 import Data.Text (Text)
 import Data.These (These (..), these)
+import Data.Profunctor
 
 --------------------------------------------------------------------------------
 
@@ -30,6 +31,14 @@ applySerializer (Bot bot) (Serializer parser printer) = Bot $ \s i ->
 -- | Bidirectional serializer from 'Server' I/O to 'Bot' I/O.
 data Serializer so si bo bi = Serializer
   {parser :: so -> Maybe bi, printer :: bo -> si}
+  deriving Functor
+
+instance Profunctor (Serializer so si) where
+  dimap f g Serializer {..} =
+    Serializer
+      { parser = fmap (fmap g) $ parser,
+        printer = printer . f
+      }
 
 -- | A 'Serializer' whose 'Server' I/O has been specialized to 'Text'.
 type TextSerializer = Serializer Text Text

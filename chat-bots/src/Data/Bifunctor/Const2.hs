@@ -14,7 +14,7 @@ import GHC.Generics (Generic)
 --------------------------------------------------------------------------------
 
 newtype Const2 a b c = Const2 a
-  deriving stock (Functor)
+  deriving stock (Show, Functor)
   deriving newtype (Generic, Semigroup, Monoid)
 
 instance Monoid m => Applicative (Const2 m b) where
