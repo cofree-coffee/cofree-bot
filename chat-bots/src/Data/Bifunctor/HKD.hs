@@ -36,8 +36,10 @@ data FoldMap t i f xs where
   Cons :: {unCons :: (p x y) `t` (FoldMap t i p xs)} -> FoldMap t i p ('(x, y) ': xs)
 
 data First a b = First {unFirst :: a}
+  deriving Show
 
 data Second a b = Second {unSecond :: b}
+  deriving Show
 
 sequenceFoldMapB :: (Bifunctor p, Monoidal (->) t1 i1 t2 i2 to io p) => FoldMap to io p xs -> p (FoldMap t1 i1 First xs) (FoldMap t2 i2 Second xs)
 sequenceFoldMapB = \case

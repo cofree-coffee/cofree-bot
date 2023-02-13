@@ -13,6 +13,7 @@ import Data.Chat.Utils (can, type (/+\))
 import Data.Text (Text)
 import Data.These (These (..), these)
 import Data.Profunctor
+-- import Data.Bifunctor.Monoidal (Semigroupal (..))
 
 --------------------------------------------------------------------------------
 
@@ -39,6 +40,15 @@ instance Profunctor (Serializer so si) where
       { parser = fmap (fmap g) $ parser,
         printer = printer . f
       }
+
+-- instance Semigroupal (->) These These (,) (Flip TextSerializer) where
+--   combine :: (Flip TextSerializer x y, Flip TextSerializer x' y') -> Flip TextSerializer (These x x') (These y y')
+--   combine (Flip (Serializer par1 pri1), Flip (Serializer par2 pri2)) =
+--     Flip $
+--       Serializer
+--         { parser = uncurry can . (par1 &&& par2),
+--           printer = these pri1 pri2 (\y y' -> pri1 y <> pri2 y')
+--         }
 
 -- | A 'Serializer' whose 'Server' I/O has been specialized to 'Text'.
 type TextSerializer = Serializer Text Text
