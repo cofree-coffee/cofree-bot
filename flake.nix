@@ -38,18 +38,20 @@
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./. { };
+
             openai-hs = hfinal.callCabal2nix "openai-hs" (evalPkgs.fetchFromGitHub {
               owner = "agrafix";
               repo = "openai-hs";
               rev = "1238dfaabd065085c81d93754cfab93cecb7b471";
               sha256 = "sha256-kkKTruinN4W4J4OutAPNYtjzPgU7pKdQhHL0JRY5ItE=";
             } + "/openai-hs") { };
-            openai-hs-servant = hfinal.callCabal2nix "openai-hs" (evalPkgs.fetchFromGitHub {
+
+            openai-servant = hfinal.callCabal2nix "openai-hs" (evalPkgs.fetchFromGitHub {
               owner = "agrafix";
               repo = "openai-hs";
               rev = "1238dfaabd065085c81d93754cfab93cecb7b471";
               sha256 = "sha256-kkKTruinN4W4J4OutAPNYtjzPgU7pKdQhHL0JRY5ItE=";
-            } + "/openai-hs-servant") { };
+            } + "/openai-servant") { };
           };
         };
 
