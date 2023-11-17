@@ -134,7 +134,9 @@ sessionizedParser :: (Text -> Maybe i) -> Parser (SessionInput i)
 sessionizedParser p = do
   keyword <- New <$ "new" <|> Use <$ "use" <|> End <$ "end"
   case keyword of
-    New -> pure StartSession
+    New -> do
+      _ <- endOfInput <|> endOfLine
+      pure StartSession
     Use -> do
       _ <- space
       n <- decimal <* ": "
