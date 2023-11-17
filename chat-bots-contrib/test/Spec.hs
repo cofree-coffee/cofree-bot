@@ -142,3 +142,11 @@ sessionizedBotSpec =
         <<<Session '1' Output:
         "x" = 42
         |]
+
+    it "ignores bodies of text beginning with session keywords" $ do
+      fixBot bot mempty
+        `conformsToScript` [mkScript|
+        >>>new body of text that happens to begin with the word new
+        >>>use body of text that begins with the word use
+        >>>end body of text that begins with the word end
+        |]
