@@ -15,12 +15,12 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Monad.ListT (alignListT, toListT)
-import Data.Bifunctor (Bifunctor (..))
-import Data.Chat.Bot (Bot (..))
+import Data.Bifunctor.Monoidal.Specialized (split')
+import Data.Chat.Bot (Bot (..), invmapBot)
 import Data.Chat.Utils (type (/+\), type (/\), type (\*/), type (\/))
-import Data.Functor ((<&>))
-import Data.Profunctor (Strong (..))
+import Data.Profunctor (Profunctor (..), Strong (..))
 import Data.These (These (..))
+import Data.Trifunctor.Monoidal qualified as Trifunctor
 
 --------------------------------------------------------------------------------
 
@@ -57,24 +57,14 @@ nudgeRight = nudge . Right
 infixr 9 /\
 
 (/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
-(/\) (Bot b1) (Bot b2) = Bot $ \(s, s') i -> do
-  (nextState, responses) <- b1 s i
-  (nextState', responses') <- b2 s' i
-  pure $ (,) (nextState, nextState') (responses, responses')
+(/\) b1 = lmap split' . curry Trifunctor.combine b1
 
 -- | Runs two bots and then interleaves their output.
 infixr 9 /+\
 
 (/+\) ::
   Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /+\ i') (o /+\ o')
-(/+\) (Bot b1) (Bot b2) = Bot $ \(s, s') -> \case
-  This i -> fmap (bimap This (,s')) $ b1 s i
-  That i' -> fmap (bimap That (s,)) $ b2 s' i'
-  These i i' ->
-    alignListT (b1 s i) (b2 s' i') <&> \case
-      This (o, _s) -> (This o, (s, s'))
-      That (o', _s') -> (That o', (s, s'))
-      These (o, s) (o', s') -> (These o o', (s, s'))
+(/+\) b1 b2 = Trifunctor.combine (b1, b2)
 
 -- | Runs two bots on the same input and then interleaves their
 -- output, sequencing if they both return an output for the same
@@ -97,5 +87,4 @@ infixr 9 /.\
 infixr 9 \/
 
 (\/) :: Monad m => Bot m s i o -> Bot m s i' o' -> Bot m s (i \/ i') (o \/ o')
-(\/) (Bot b1) (Bot b2) =
-  Bot $ \s -> either (fmap (first Left) . b1 s) (fmap (first Right) . b2 s)
+(\/) b1 b2 = invmapBot fst split' $ Trifunctor.combine (b1, b2)

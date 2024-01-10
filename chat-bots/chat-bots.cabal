@@ -50,6 +50,7 @@ common common-libraries
     , base           >=2 && <5
     , bytestring
     , matrix-client
+    , monoidal-functors
     , network-uri
     , profunctors
     , text

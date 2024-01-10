@@ -1,7 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ViewPatterns #-}
 
 -- | The core Chat Bot encoding.
 module Data.Chat.Bot
@@ -34,14 +34,16 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Monad.Except (MonadIO (..), MonadTrans (..))
-import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
+import Control.Monad.ListT (ListF (..), ListT (..), alignListT, emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader, ReaderT (..))
 import Control.Monad.State (MonadState, StateT (..))
 import Data.Bifunctor (Bifunctor (..))
+import Data.Bifunctor.Monoidal qualified as Bifunctor
 import Data.Chat.Utils (readFileMaybe)
-#if __GLASGOW_HASKELL__ >= 902
-import Control.Applicative (asum)
+#if MIN_VERSION_base(4,16,1)
+import Control.Applicative (asum, liftA2)
 #else
+import Control.Applicative (liftA2)
 import Data.Foldable (asum)
 #endif
 import Data.Functor ((<&>))
@@ -49,6 +51,9 @@ import Data.Kind
 import Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
 import Data.Profunctor.Traversing (Traversing (..))
 import Data.Text qualified as Text
+import Data.These (These (..))
+import Data.Trifunctor.Monoidal qualified as Trifunctor
+import Data.Void (Void, absurd)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
 
@@ -82,6 +87,42 @@ newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
     via StateT s (ReaderT i (ListT m))
+
+instance Monad m => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m) where
+  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (i, i') (o, o')
+  combine (Bot b1, Bot b2) = Bot $ \(s, t) (i, i') ->
+    liftA2 (curry (\((o, s'), (o', t')) -> ((o, o'), (s', t')))) (b1 s i) (b2 t i')
+
+instance Functor m => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m) where
+  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (Either i i') (Either o o')
+  combine (Bot m1, Bot m2) = Bot $ \(s, t) -> \case
+    Left i -> (bimap Left (,t) <$> m1 s i)
+    Right i' -> bimap Right (s,) <$> m2 t i'
+
+instance Monad m => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) where
+  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (These i i') (These o o')
+  combine (Bot b1, Bot b2) = Bot $ \(s, t) -> \case
+    This i -> bimap This (,t) <$> b1 s i
+    That i' -> bimap That (s,) <$> b2 t i'
+    These i i' -> do
+      alignListT (b1 s i) (b2 t i') <&> \case
+        This (o, s) -> (This o, (s, t))
+        That (o', t) -> (That o', (s, t))
+        These (o, s) (o', t) -> (These o o', (s, t))
+
+instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m) where
+  introduce :: () -> Bot m () () ()
+  introduce () = Bot $ \() () -> pure ((), ())
+
+instance Trifunctor.Unital (->) () Void Void () (Bot m) where
+  introduce :: () -> Bot m () Void Void
+  introduce () = Bot $ \() -> absurd
+
+instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
+
+instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
+
+instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
 
 instance Functor f => Profunctor (Bot f s) where
   dimap :: Functor f => (a -> b) -> (c -> d) -> Bot f s b c -> Bot f s a d
@@ -175,6 +216,17 @@ newtype Behavior m i o = Behavior {runBehavior :: i -> ListT m (o, (Behavior m i
 instance Functor m => Profunctor (Behavior m) where
   dimap :: Functor m => (a -> b) -> (c -> d) -> Behavior m b c -> Behavior m a d
   dimap f g (Behavior b) = Behavior $ dimap f (fmap (bimap g (dimap f g))) b
+
+instance (Monad m) => Bifunctor.Semigroupal (->) (,) (,) (,) (Behavior m) where
+  combine :: (Behavior m i o, Behavior m i' o') -> Behavior m (i, i') (o, o')
+  combine (Behavior m1, Behavior m2) = Behavior $ \(i, i') -> do
+    liftA2 (uncurry (\o m1' (o', m2') -> ((o, o'), Bifunctor.combine (m1', m2')))) (m1 i) (m2 i')
+
+instance (Monad m) => Bifunctor.Unital (->) () () () (Behavior m) where
+  introduce :: () -> Behavior m () ()
+  introduce () = Behavior $ \() -> pure ((), Bifunctor.introduce ())
+
+instance (Monad m) => Bifunctor.Monoidal (->) (,) () (,) () (,) () (Behavior m)
 
 instance Monad m => Choice (Behavior m) where
   left' :: Monad m => Behavior m a b -> Behavior m (Either a c) (Either b c)
