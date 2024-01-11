@@ -2,7 +2,7 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixos-22.11;
+    nixpkgs.url = github:NixOS/nixpkgs/nixos-23.11;
 
     flake-utils = {
       url = github:numtide/flake-utils;
@@ -36,9 +36,17 @@
         # cabal2nix uses IFD
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
+            bifunctors = hfinal.bifunctors_5_6_1;
             chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
             chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
+            monoidal-functors = hfinal.callCabal2nix "monoidal-functors" (pkgs.fetchFromGitHub {
+              owner = "solomon-b";
+              repo = "monoidal-functors";
+              rev = "cb73b3c151e0467d104ffff236b91eb0e4f57602";
+              sha256 = "sha256-5sSxjfRL+v+3l/NUPxHebKgoZiwE/yp1AcydKHCB8FM=";
+            }) { };
+            semigroupoids = hfinal.semigroupoids_6_0_0_1;
           };
         };
 
