@@ -17,18 +17,22 @@ module Control.Monad.ListT
     toListT,
     fromListT,
     hoistListT,
-    alignListT,
   )
 where
 
 --------------------------------------------------------------------------------
 
-import Control.Applicative (Alternative (..))
-import Control.Monad.Except (MonadError (..), MonadIO (..), MonadTrans (..), ap)
+import Control.Applicative (Alternative (..), Applicative (..))
+import Control.Monad (liftM2)
+import Control.Monad.Except (MonadError (..), MonadIO (..), MonadTrans (..))
+import Data.Align
 import Data.Bifunctor (Bifunctor (..))
+import Data.Bifunctor.Monoidal.Specialized (merge')
 import Data.Foldable (Foldable (..))
 import Data.Functor ((<&>))
+import Data.Functor.Monoidal qualified as Functor
 import Data.These (These (..))
+import Data.Void (Void, absurd)
 
 --------------------------------------------------------------------------------
 
@@ -41,44 +45,76 @@ newtype ListT m a = ListT
   }
 
 instance Functor m => Functor (ListT m) where
-  fmap :: Functor m => (a -> b) -> ListT m a -> ListT m b
+  fmap :: (a -> b) -> ListT m a -> ListT m b
   fmap f (ListT ma) = ListT $ fmap (bimap f (fmap f)) $ ma
 
 instance Monad m => Applicative (ListT m) where
-  pure :: Monad m => a -> ListT m a
-  pure = ListT . return . (`ConsF` emptyListT)
+  pure :: a -> ListT m a
+  pure a = a <$ Functor.introduce @_ @() ()
 
-  (<*>) :: Monad m => ListT m (a -> b) -> ListT m a -> ListT m b
-  (<*>) = ap
+  liftA2 :: (a -> b -> c) -> ListT m a -> ListT m b -> ListT m c
+  liftA2 f xs ys = uncurry f <$> Functor.combine (xs, ys)
+
+instance Monad m => Functor.Semigroupal (->) (,) (,) (ListT m) where
+  combine :: (ListT m x, ListT m x') -> ListT m (x, x')
+  combine = uncurry (liftM2 (,))
+
+instance Monad m => Functor.Unital (->) () () (ListT m) where
+  introduce :: () -> ListT m ()
+  introduce () = ListT $ return (() `ConsF` emptyListT)
 
 instance Monad m => Alternative (ListT m) where
-  empty :: Monad m => ListT m a
-  empty = emptyListT
+  empty :: ListT m a
+  empty = absurd <$> Functor.introduce ()
 
-  (<|>) :: Monad m => ListT m a -> ListT m a -> ListT m a
-  ListT m <|> ListT n = ListT $ do
+  (<|>) :: ListT m a -> ListT m a -> ListT m a
+  (<|>) xs ys = merge' <$> Functor.combine @_ @Either (xs, ys)
+
+instance Monad m => Functor.Semigroupal (->) Either (,) (ListT m) where
+  combine :: (ListT m x, ListT m x') -> ListT m (Either x x')
+  combine (ListT xs, ListT ys) =
+    ListT $ do
+      xs' <- xs
+      ys' <- ys
+      pure $ case (xs', ys') of
+        (NilF, NilF) -> NilF
+        (ConsF x' xs'', NilF) -> ConsF (Left x') (Left <$> xs'')
+        (NilF, ConsF y' ys'') -> ConsF (Right y') (Right <$> ys'')
+        (ConsF x' xs'', ConsF y' ys'') ->
+          ConsF (Left x') $ ListT $ pure $ ConsF (Right y') $ Functor.combine (xs'', ys'')
+
+instance Applicative m => Functor.Unital (->) Void () (ListT m) where
+  introduce :: () -> ListT m Void
+  introduce () = ListT $ pure NilF
+
+instance Monad m => Semialign (ListT m) where
+  align :: ListT m a -> ListT m b -> ListT m (These a b)
+  align = curry Functor.combine
+
+instance Monad m => Functor.Semigroupal (->) These (,) (ListT m) where
+  combine :: (ListT m x, ListT m x') -> ListT m (These x x')
+  combine (ListT m, ListT n) = ListT $ do
     x <- m
     y <- n
     pure $ case (x, y) of
       (NilF, NilF) -> NilF
-      (ConsF x' xs, NilF) -> ConsF x' xs
-      (NilF, ConsF y' ys) -> ConsF y' ys
-      (ConsF x' xs, ConsF y' ys) ->
-        ConsF x' (ListT $ pure $ ConsF y' (xs <|> ys))
+      (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
+      (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
+      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
 
 instance MonadTrans ListT where
   lift :: Monad m => m a -> ListT m a
   lift ma = ListT $ fmap (\a -> ConsF a (ListT $ pure NilF)) ma
 
 instance MonadIO m => MonadIO (ListT m) where
-  liftIO :: MonadIO m => IO a -> ListT m a
+  liftIO :: IO a -> ListT m a
   liftIO io = ListT $ liftIO $ fmap (\a -> ConsF a (ListT $ pure NilF)) io
 
 instance MonadError e m => MonadError e (ListT m) where
-  throwError :: MonadError e m => e -> ListT m a
+  throwError :: e -> ListT m a
   throwError = lift . throwError
 
-  catchError :: MonadError e m => ListT m a -> (e -> ListT m a) -> ListT m a
+  catchError :: ListT m a -> (e -> ListT m a) -> ListT m a
   catchError m f = ListT . deepCatch . runListT $ m
     where
       deepCatch m' = fmap deepCatch' m' `catchError` \e -> runListT (f e)
@@ -88,10 +124,10 @@ instance MonadError e m => MonadError e (ListT m) where
         ConsF a r -> ConsF a (ListT $ deepCatch $ runListT r)
 
 instance Monad m => Monad (ListT m) where
-  return :: Monad m => a -> ListT m a
+  return :: a -> ListT m a
   return = pure
 
-  (>>=) :: Monad m => ListT m a -> (a -> ListT m b) -> ListT m b
+  (>>=) :: ListT m a -> (a -> ListT m b) -> ListT m b
   ma >>= amb = joinListT $ fmap amb ma
 
 data ListF a r = NilF | ConsF a r
@@ -107,7 +143,7 @@ instance Bifunctor ListF where
 
 -- | The empty 'ListT'.
 emptyListT :: Applicative m => ListT m a
-emptyListT = ListT $ pure NilF
+emptyListT = absurd <$> Functor.introduce ()
 
 -- | A 'ListT' of one element.
 singletonListT :: Applicative m => a -> ListT m a
@@ -149,14 +185,3 @@ joinListT (ListT ma) = ListT $ do
 -- @ListT m@ to @ListT n@.
 hoistListT :: Functor n => (forall x. m x -> n x) -> ListT m a -> ListT n a
 hoistListT f = ListT . fmap (fmap (hoistListT f)) . f . runListT
-
--- | Align two 'ListT's, interleaving their effects.
-alignListT :: Monad m => ListT m a -> ListT m b -> ListT m (These a b)
-alignListT (ListT m) (ListT n) = ListT $ do
-  x <- m
-  y <- n
-  pure $ case (x, y) of
-    (NilF, NilF) -> NilF
-    (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
-    (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
-    (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (alignListT xs ys)

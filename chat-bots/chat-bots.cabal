@@ -53,6 +53,7 @@ common common-libraries
     , monoidal-functors
     , network-uri
     , profunctors
+    , semialign
     , text
     , these
     , typed-process

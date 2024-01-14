@@ -34,9 +34,10 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Monad.Except (MonadIO (..), MonadTrans (..))
-import Control.Monad.ListT (ListF (..), ListT (..), alignListT, emptyListT, hoistListT)
+import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader, ReaderT (..))
 import Control.Monad.State (MonadState, StateT (..))
+import Data.Align
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bifunctor.Monoidal qualified as Bifunctor
 import Data.Chat.Utils (readFileMaybe)
@@ -105,7 +106,7 @@ instance Monad m => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) wher
     This i -> bimap This (,t) <$> b1 s i
     That i' -> bimap That (s,) <$> b2 t i'
     These i i' -> do
-      alignListT (b1 s i) (b2 t i') <&> \case
+      align (b1 s i) (b2 t i') <&> \case
         This (o, s) -> (This o, (s, t))
         That (o', t) -> (That o', (s, t))
         These (o, s) (o', t) -> (These o o', (s, t))
@@ -140,8 +141,7 @@ invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
 
 --------------------------------------------------------------------------------
 
--- | Lift the @Monoid o@ unit value into @Bot m s i o@.
--- TODO: Remove monoid and produce an empty listT Revist all 'Monoid o' decisions.
+-- | Lift the 'ListT' Nil value into @Bot m s i o@.
 emptyBot :: Monad m => Bot m s i o
 emptyBot = Bot $ \_ _ -> emptyListT
 

@@ -14,7 +14,8 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad.ListT (alignListT, toListT)
+import Control.Monad.ListT (toListT)
+import Data.Align
 import Data.Bifunctor.Monoidal.Specialized (split')
 import Data.Chat.Bot (Bot (..), invmapBot)
 import Data.Chat.Utils (type (/+\), type (/\), type (\*/), type (\/))
@@ -73,7 +74,7 @@ infixr 9 /.\
 
 (/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
 (/.\) (Bot b1) (Bot b2) = Bot $ \(s1, s2) i -> do
-  alignListT (b1 s1 i) (b2 s2 i) >>= \case
+  align (b1 s1 i) (b2 s2 i) >>= \case
     This (o, s1') -> pure (o, (s1', s2))
     That (o', s2') -> pure (o', (s1, s2'))
     These (o, s1') (o', s2') -> toListT [(o, (s1', s2)), (o', (s1', s2'))]
