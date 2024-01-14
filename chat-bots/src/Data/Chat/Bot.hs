@@ -48,6 +48,7 @@ import Control.Applicative (liftA2)
 import Data.Foldable (asum)
 #endif
 import Data.Functor ((<&>))
+import Data.Functor.Monoidal qualified as Functor
 import Data.Kind
 import Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
 import Data.Profunctor.Traversing (Traversing (..))
@@ -106,7 +107,7 @@ instance Monad m => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) wher
     This i -> bimap This (,t) <$> b1 s i
     That i' -> bimap That (s,) <$> b2 t i'
     These i i' -> do
-      align (b1 s i) (b2 t i') <&> \case
+      Functor.combine (b1 s i, b2 t i') <&> \case
         This (o, s) -> (This o, (s, t))
         That (o', t) -> (That o', (s, t))
         These (o, s) (o', t) -> (These o o', (s, t))
