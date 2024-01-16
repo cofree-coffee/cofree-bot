@@ -100,7 +100,7 @@ instance Monad m => Functor.Semigroupal (->) These (,) (ListT m) where
       (NilF, NilF) -> NilF
       (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
       (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
-      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
+      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (Functor.combine (xs, ys))
 
 instance MonadTrans ListT where
   lift :: Monad m => m a -> ListT m a
