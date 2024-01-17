@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Control.Monad.ListT
@@ -13,6 +14,7 @@ module Control.Monad.ListT
     emptyListT,
     consListT,
     singletonListT,
+    appendListT,
     joinListT,
     toListT,
     fromListT,
@@ -22,17 +24,16 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Applicative (Alternative (..), Applicative (..))
-import Control.Monad (liftM2)
+import Control.Applicative (Alternative (..))
+import Control.Monad (ap)
 import Control.Monad.Except (MonadError (..), MonadIO (..), MonadTrans (..))
 import Data.Align
 import Data.Bifunctor (Bifunctor (..))
-import Data.Bifunctor.Monoidal.Specialized (merge')
 import Data.Foldable (Foldable (..))
 import Data.Functor ((<&>))
 import Data.Functor.Monoidal qualified as Functor
 import Data.These (These (..))
-import Data.Void (Void, absurd)
+import Data.Void (Void)
 
 --------------------------------------------------------------------------------
 
@@ -49,58 +50,61 @@ instance Functor m => Functor (ListT m) where
   fmap f (ListT ma) = ListT $ fmap (bimap f (fmap f)) $ ma
 
 instance Monad m => Applicative (ListT m) where
-  pure :: a -> ListT m a
-  pure a = a <$ Functor.introduce @_ @() ()
+  pure :: Monad m => a -> ListT m a
+  pure = ListT . return . (`ConsF` emptyListT)
 
-  liftA2 :: (a -> b -> c) -> ListT m a -> ListT m b -> ListT m c
-  liftA2 f xs ys = uncurry f <$> Functor.combine (xs, ys)
-
-instance Monad m => Functor.Semigroupal (->) (,) (,) (ListT m) where
-  combine :: (ListT m x, ListT m x') -> ListT m (x, x')
-  combine = uncurry (liftM2 (,))
-
-instance Monad m => Functor.Unital (->) () () (ListT m) where
-  introduce :: () -> ListT m ()
-  introduce () = ListT $ return (() `ConsF` emptyListT)
+  (<*>) :: Monad m => ListT m (a -> b) -> ListT m a -> ListT m b
+  (<*>) = ap
 
 instance Monad m => Alternative (ListT m) where
   empty :: ListT m a
-  empty = absurd <$> Functor.introduce ()
+  empty = ListT $ pure NilF
 
   (<|>) :: ListT m a -> ListT m a -> ListT m a
-  (<|>) xs ys = merge' <$> Functor.combine @_ @Either (xs, ys)
-
-instance Monad m => Functor.Semigroupal (->) Either (,) (ListT m) where
-  combine :: (ListT m x, ListT m x') -> ListT m (Either x x')
-  combine (ListT xs, ListT ys) =
-    ListT $ do
-      xs' <- xs
-      ys' <- ys
-      pure $ case (xs', ys') of
-        (NilF, NilF) -> NilF
-        (ConsF x' xs'', NilF) -> ConsF (Left x') (Left <$> xs'')
-        (NilF, ConsF y' ys'') -> ConsF (Right y') (Right <$> ys'')
-        (ConsF x' xs'', ConsF y' ys'') ->
-          ConsF (Left x') $ ListT $ pure $ ConsF (Right y') $ Functor.combine (xs'', ys'')
-
-instance Applicative m => Functor.Unital (->) Void () (ListT m) where
-  introduce :: () -> ListT m Void
-  introduce () = ListT $ pure NilF
+  ListT m <|> ListT n = ListT $ do
+    x <- m
+    y <- n
+    pure $ case (x, y) of
+      (NilF, NilF) -> NilF
+      (ConsF x' xs, NilF) -> ConsF x' xs
+      (NilF, ConsF y' ys) -> ConsF y' ys
+      (ConsF x' xs, ConsF y' ys) ->
+        ConsF x' (ListT $ pure $ ConsF y' (xs <|> ys))
 
 instance Monad m => Semialign (ListT m) where
   align :: ListT m a -> ListT m b -> ListT m (These a b)
-  align = curry Functor.combine
-
-instance Monad m => Functor.Semigroupal (->) These (,) (ListT m) where
-  combine :: (ListT m x, ListT m x') -> ListT m (These x x')
-  combine (ListT m, ListT n) = ListT $ do
+  align (ListT m) (ListT n) = ListT $ do
     x <- m
     y <- n
     pure $ case (x, y) of
       (NilF, NilF) -> NilF
       (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
       (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
-      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (Functor.combine (xs, ys))
+      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
+
+instance Monad m => Align (ListT m) where
+  nil :: Monad m => ListT m a
+  nil = empty
+
+deriving via Functor.FromApplicative (ListT m) instance (Monad m) => Functor.Semigroupal (->) (,) (,) (ListT m)
+
+deriving via Functor.FromApplicative (ListT m) instance (Monad m) => Functor.Unital (->) () () (ListT m)
+
+deriving via Functor.FromAlternative (ListT m) instance (Monad m) => Functor.Semigroupal (->) Either (,) (ListT m)
+
+deriving via Functor.FromAlternative (ListT m) instance (Monad m) => Functor.Unital (->) Void () (ListT m)
+
+deriving via Functor.FromSemialign (ListT m) instance (Monad m) => Functor.Semigroupal (->) These (,) (ListT m)
+
+instance Monad m => Functor.Monoidal (->) (,) () (,) () (ListT m)
+
+instance Monad m => Functor.Monoidal (->) Either Void (,) () (ListT m)
+
+instance Monad m => Functor.Monoidal (->) These Void (,) () (ListT m)
+
+instance Monad m => Monad (ListT m) where
+  (>>=) :: ListT m a -> (a -> ListT m b) -> ListT m b
+  ma >>= amb = joinListT $ fmap amb ma
 
 instance MonadTrans ListT where
   lift :: Monad m => m a -> ListT m a
@@ -123,13 +127,6 @@ instance MonadError e m => MonadError e (ListT m) where
         NilF -> NilF
         ConsF a r -> ConsF a (ListT $ deepCatch $ runListT r)
 
-instance Monad m => Monad (ListT m) where
-  return :: a -> ListT m a
-  return = pure
-
-  (>>=) :: ListT m a -> (a -> ListT m b) -> ListT m b
-  ma >>= amb = joinListT $ fmap amb ma
-
 data ListF a r = NilF | ConsF a r
   deriving (Functor)
 
@@ -143,7 +140,7 @@ instance Bifunctor ListF where
 
 -- | The empty 'ListT'.
 emptyListT :: Applicative m => ListT m a
-emptyListT = absurd <$> Functor.introduce ()
+emptyListT = ListT $ pure NilF
 
 -- | A 'ListT' of one element.
 singletonListT :: Applicative m => a -> ListT m a
@@ -157,6 +154,15 @@ consListT a = \case
       ml <&> \case
         NilF -> ConsF a emptyListT
         ConsF x xs -> ConsF a $ ListT $ pure $ ConsF x xs
+
+appendListT :: Monad m => ListT m a -> ListT m a -> ListT m a
+appendListT (ListT xs) ys = ListT $ do
+  xs' <- xs
+  runListT $ appendListF xs' ys
+
+appendListF :: Monad m => ListF a (ListT m a) -> ListT m a -> ListT m a
+appendListF NilF ys = ys
+appendListF (ConsF x xs) ys = ListT $ pure $ ConsF x $ appendListT xs ys
 
 -- | Convert some 'Foldable' @t@ into a 'ListT'.
 toListT :: (Foldable t, Applicative m) => t a -> ListT m a

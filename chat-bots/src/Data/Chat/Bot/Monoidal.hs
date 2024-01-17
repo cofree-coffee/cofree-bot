@@ -22,6 +22,7 @@ import Data.Chat.Utils (type (/+\), type (/\), type (\*/), type (\/))
 import Data.Functor.Monoidal qualified as Functor
 import Data.Profunctor (Profunctor (..), Strong (..))
 import Data.These (These (..))
+import Data.Trifunctor.Monoidal ((|***|))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
 
 --------------------------------------------------------------------------------
@@ -58,7 +59,7 @@ nudgeRight = nudge . Right
 infixr 9 /\
 
 (/\) :: Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /\ i') (o /\ o')
-(/\) b1 = curry Trifunctor.combine b1
+(/\) = (|***|)
 
 -- | Runs two bots and then interleaves their output.
 infixr 9 /+\
