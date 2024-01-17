@@ -54,12 +54,11 @@ nudgeLeft = nudge . Left
 nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
 nudgeRight = nudge . Right
 
--- | Tuple the states and outputs of two bots who operate on the same
--- input @i@.
+-- | Tuple the states and i/o of two bots.
 infixr 9 /\
 
-(/\) :: Monad m => Bot m s i o -> Bot m s' i o' -> Bot m (s /\ s') i (o /\ o')
-(/\) b1 = lmap split' . curry Trifunctor.combine b1
+(/\) :: Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /\ i') (o /\ o')
+(/\) b1 = curry Trifunctor.combine b1
 
 -- | Runs two bots and then interleaves their output.
 infixr 9 /+\
