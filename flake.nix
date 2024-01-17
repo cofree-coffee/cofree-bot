@@ -44,8 +44,8 @@
               (pkgs.fetchFromGitHub {
                 owner = "solomon-b";
                 repo = "monoidal-functors";
-                rev = "cb73b3c151e0467d104ffff236b91eb0e4f57602";
-                sha256 = "sha256-5sSxjfRL+v+3l/NUPxHebKgoZiwE/yp1AcydKHCB8FM=";
+                rev = "0c444c9f357538b245509b2a9b1be093c37f2017";
+                sha256 = "sha256-ENMQndrmpsrSxSegsQcZdSA7dVh+fIvET20PTEP9NbY=";
               })
               { };
             semigroupoids = hfinal.semigroupoids_6_0_0_1;
