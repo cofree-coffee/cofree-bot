@@ -24,7 +24,7 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Applicative (Alternative (..))
+import Control.Applicative (Alternative (..), Applicative (..))
 import Control.Monad (ap)
 import Control.Monad.Except (MonadError (..), MonadIO (..), MonadTrans (..))
 import Data.Align
@@ -58,33 +58,24 @@ instance Monad m => Applicative (ListT m) where
 
 instance Monad m => Alternative (ListT m) where
   empty :: ListT m a
-  empty = ListT $ pure NilF
+  empty = nil
 
   (<|>) :: ListT m a -> ListT m a -> ListT m a
-  ListT m <|> ListT n = ListT $ do
-    x <- m
-    y <- n
-    pure $ case (x, y) of
-      (NilF, NilF) -> NilF
-      (ConsF x' xs, NilF) -> ConsF x' xs
-      (NilF, ConsF y' ys) -> ConsF y' ys
-      (ConsF x' xs, ConsF y' ys) ->
-        ConsF x' (ListT $ pure $ ConsF y' (xs <|> ys))
+  xs <|> ys = appendListT xs ys
 
-instance Monad m => Semialign (ListT m) where
+instance Applicative m => Semialign (ListT m) where
   align :: ListT m a -> ListT m b -> ListT m (These a b)
-  align (ListT m) (ListT n) = ListT $ do
-    x <- m
-    y <- n
-    pure $ case (x, y) of
-      (NilF, NilF) -> NilF
-      (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
-      (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
-      (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
+  align (ListT m) (ListT n) =
+    ListT $
+      liftA2 (,) m n <&> \case
+        (NilF, NilF) -> NilF
+        (ConsF x' xs, NilF) -> ConsF (This x') (fmap This xs)
+        (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
+        (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
 
-instance Monad m => Align (ListT m) where
-  nil :: Monad m => ListT m a
-  nil = empty
+instance Applicative m => Align (ListT m) where
+  nil :: ListT m a
+  nil = ListT $ pure NilF
 
 deriving via Functor.FromApplicative (ListT m) instance (Monad m) => Functor.Semigroupal (->) (,) (,) (ListT m)
 
@@ -140,7 +131,7 @@ instance Bifunctor ListF where
 
 -- | The empty 'ListT'.
 emptyListT :: Applicative m => ListT m a
-emptyListT = ListT $ pure NilF
+emptyListT = nil
 
 -- | A 'ListT' of one element.
 singletonListT :: Applicative m => a -> ListT m a
