@@ -31,6 +31,7 @@ import Data.Align
 import Data.Bifunctor (Bifunctor (..))
 import Data.Foldable (Foldable (..))
 import Data.Functor ((<&>))
+import Data.Functor.Classes
 import Data.Functor.Monoidal qualified as Functor
 import Data.These (These (..))
 import Data.Void (Void)
@@ -44,6 +45,17 @@ import Data.Void (Void)
 newtype ListT m a = ListT
   { runListT :: m (ListF a (ListT m a))
   }
+
+instance (Eq1 m) => Eq1 (ListT m) where
+  liftEq f (ListT xs) (ListT ys) = liftEq g xs ys
+    where
+      g NilF NilF = True
+      g (ConsF x xs) (ConsF y ys) = f x y && liftEq f xs ys
+      g _ _ = False
+
+deriving instance (Eq (m (ListF a (ListT m a))), Eq1 m, Eq a) => Eq (ListT m a)
+
+deriving instance (Show (m (ListF a (ListT m a))), Show1 m, Show a) => Show (ListT m a)
 
 instance Functor m => Functor (ListT m) where
   fmap :: (a -> b) -> ListT m a -> ListT m b
@@ -119,7 +131,7 @@ instance MonadError e m => MonadError e (ListT m) where
         ConsF a r -> ConsF a (ListT $ deepCatch $ runListT r)
 
 data ListF a r = NilF | ConsF a r
-  deriving (Functor)
+  deriving (Show, Eq, Functor)
 
 instance Bifunctor ListF where
   bimap :: (a -> b) -> (c -> d) -> ListF a c -> ListF b d

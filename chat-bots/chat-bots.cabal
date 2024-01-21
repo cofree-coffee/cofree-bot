@@ -93,3 +93,23 @@ library
     , random
     , transformers
     , vector
+
+--------------------------------------------------------------------------------
+
+test-suite chat-bot-tests
+  import:
+    , common-settings
+
+  type: exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is: Spec.hs
+
+  build-depends:
+    , base           >=2 && <5
+    , chat-bots
+    , hedgehog
+    , hedgehog-classes
+    , hspec
+    , hspec-core
+    , hspec-hedgehog
+    , text
