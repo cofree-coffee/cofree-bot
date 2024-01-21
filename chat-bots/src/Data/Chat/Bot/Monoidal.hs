@@ -31,7 +31,7 @@ import Data.Trifunctor.Monoidal qualified as Trifunctor
 -- the inputs to the input bots and produces a wedge product of their
 -- outputs.
 nudge ::
-  Monad m => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
+  (Monad m) => Bot m s i o \/ Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
 nudge =
   either
     ( \(Bot b) -> Bot $ \s ->
@@ -47,25 +47,25 @@ nudge =
 
 -- | Nudge a bot into the left side of a bot with a summed input and
 -- wedge product output.
-nudgeLeft :: Monad m => Bot m s i o -> Bot m s (i \/ i') (o \*/ o')
+nudgeLeft :: (Monad m) => Bot m s i o -> Bot m s (i \/ i') (o \*/ o')
 nudgeLeft = nudge . Left
 
 -- | Nudge a bot into the right side of a bot with a summed input and
 -- wedge product output.
-nudgeRight :: Monad m => Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
+nudgeRight :: (Monad m) => Bot m s i' o' -> Bot m s (i \/ i') (o \*/ o')
 nudgeRight = nudge . Right
 
 -- | Tuple the states and i/o of two bots.
 infixr 9 /\
 
-(/\) :: Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /\ i') (o /\ o')
+(/\) :: (Monad m) => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /\ i') (o /\ o')
 (/\) = (|***|)
 
 -- | Runs two bots and then interleaves their output.
 infixr 9 /+\
 
 (/+\) ::
-  Monad m => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /+\ i') (o /+\ o')
+  (Monad m) => Bot m s i o -> Bot m s' i' o' -> Bot m (s /\ s') (i /+\ i') (o /+\ o')
 (/+\) = curry Trifunctor.combine
 
 -- | Runs two bots on the same input and then interleaves their
@@ -73,7 +73,7 @@ infixr 9 /+\
 -- input.
 infixr 9 /.\
 
-(/.\) :: Monad m => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
+(/.\) :: (Monad m) => Bot m s i o -> Bot m s' i o -> Bot m (s /\ s') i o
 (/.\) (Bot b1) (Bot b2) = Bot $ \(s1, s2) i -> do
   Functor.combine (b1 s1 i, b2 s2 i) >>= \case
     This (o, s1') -> pure (o, (s1', s2))
@@ -87,5 +87,5 @@ infixr 9 /.\
 -- provided.
 infixr 9 \/
 
-(\/) :: Monad m => Bot m s i o -> Bot m t i' o' -> Bot m (s /\ t) (i \/ i') (o \/ o')
+(\/) :: (Monad m) => Bot m s i o -> Bot m t i' o' -> Bot m (s /\ t) (i \/ i') (o \/ o')
 (\/) = curry Trifunctor.combine

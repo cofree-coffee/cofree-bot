@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE QuantifiedConstraints #-}
@@ -26,7 +27,13 @@ where
 
 import Control.Applicative (Alternative (..), Applicative (..))
 import Control.Monad (ap)
+#if MIN_VERSION_base(4,18,0)
+import Control.Monad.Except (MonadError (..))
+import Control.Monad.IO.Class (MonadIO (..))
+import Control.Monad.Trans (MonadTrans (..))
+#else
 import Control.Monad.Except (MonadError (..), MonadIO (..), MonadTrans (..))
+#endif
 import Data.Align
 import Data.Bifunctor (Bifunctor (..))
 import Data.Foldable (Foldable (..))
@@ -57,25 +64,25 @@ deriving instance (Eq (m (ListF a (ListT m a))), Eq1 m, Eq a) => Eq (ListT m a)
 
 deriving instance (Show (m (ListF a (ListT m a))), Show1 m, Show a) => Show (ListT m a)
 
-instance Functor m => Functor (ListT m) where
+instance (Functor m) => Functor (ListT m) where
   fmap :: (a -> b) -> ListT m a -> ListT m b
   fmap f (ListT ma) = ListT $ fmap (bimap f (fmap f)) $ ma
 
-instance Monad m => Applicative (ListT m) where
-  pure :: Monad m => a -> ListT m a
+instance (Monad m) => Applicative (ListT m) where
+  pure :: (Monad m) => a -> ListT m a
   pure = ListT . return . (`ConsF` emptyListT)
 
-  (<*>) :: Monad m => ListT m (a -> b) -> ListT m a -> ListT m b
+  (<*>) :: (Monad m) => ListT m (a -> b) -> ListT m a -> ListT m b
   (<*>) = ap
 
-instance Monad m => Alternative (ListT m) where
+instance (Monad m) => Alternative (ListT m) where
   empty :: ListT m a
   empty = nil
 
   (<|>) :: ListT m a -> ListT m a -> ListT m a
   xs <|> ys = appendListT xs ys
 
-instance Applicative m => Semialign (ListT m) where
+instance (Applicative m) => Semialign (ListT m) where
   align :: ListT m a -> ListT m b -> ListT m (These a b)
   align (ListT m) (ListT n) =
     ListT $
@@ -85,7 +92,7 @@ instance Applicative m => Semialign (ListT m) where
         (NilF, ConsF y' ys) -> ConsF (That y') (fmap That ys)
         (ConsF x' xs, ConsF y' ys) -> ConsF (These x' y') (align xs ys)
 
-instance Applicative m => Align (ListT m) where
+instance (Applicative m) => Align (ListT m) where
   nil :: ListT m a
   nil = ListT $ pure NilF
 
@@ -99,25 +106,25 @@ deriving via Functor.FromAlternative (ListT m) instance (Monad m) => Functor.Uni
 
 deriving via Functor.FromSemialign (ListT m) instance (Monad m) => Functor.Semigroupal (->) These (,) (ListT m)
 
-instance Monad m => Functor.Monoidal (->) (,) () (,) () (ListT m)
+instance (Monad m) => Functor.Monoidal (->) (,) () (,) () (ListT m)
 
-instance Monad m => Functor.Monoidal (->) Either Void (,) () (ListT m)
+instance (Monad m) => Functor.Monoidal (->) Either Void (,) () (ListT m)
 
-instance Monad m => Functor.Monoidal (->) These Void (,) () (ListT m)
+instance (Monad m) => Functor.Monoidal (->) These Void (,) () (ListT m)
 
-instance Monad m => Monad (ListT m) where
+instance (Monad m) => Monad (ListT m) where
   (>>=) :: ListT m a -> (a -> ListT m b) -> ListT m b
   ma >>= amb = joinListT $ fmap amb ma
 
 instance MonadTrans ListT where
-  lift :: Monad m => m a -> ListT m a
+  lift :: (Monad m) => m a -> ListT m a
   lift ma = ListT $ fmap (\a -> ConsF a (ListT $ pure NilF)) ma
 
-instance MonadIO m => MonadIO (ListT m) where
+instance (MonadIO m) => MonadIO (ListT m) where
   liftIO :: IO a -> ListT m a
   liftIO io = ListT $ liftIO $ fmap (\a -> ConsF a (ListT $ pure NilF)) io
 
-instance MonadError e m => MonadError e (ListT m) where
+instance (MonadError e m) => MonadError e (ListT m) where
   throwError :: e -> ListT m a
   throwError = lift . throwError
 
@@ -142,15 +149,15 @@ instance Bifunctor ListF where
 --------------------------------------------------------------------------------
 
 -- | The empty 'ListT'.
-emptyListT :: Applicative m => ListT m a
+emptyListT :: (Applicative m) => ListT m a
 emptyListT = nil
 
 -- | A 'ListT' of one element.
-singletonListT :: Applicative m => a -> ListT m a
+singletonListT :: (Applicative m) => a -> ListT m a
 singletonListT a = consListT a emptyListT
 
 -- | Consing a value to a 'LisT'.
-consListT :: Applicative m => a -> ListT m a -> ListT m a
+consListT :: (Applicative m) => a -> ListT m a -> ListT m a
 consListT a = \case
   ListT ml ->
     ListT $
@@ -158,12 +165,12 @@ consListT a = \case
         NilF -> ConsF a emptyListT
         ConsF x xs -> ConsF a $ ListT $ pure $ ConsF x xs
 
-appendListT :: Monad m => ListT m a -> ListT m a -> ListT m a
+appendListT :: (Monad m) => ListT m a -> ListT m a -> ListT m a
 appendListT (ListT xs) ys = ListT $ do
   xs' <- xs
   runListT $ appendListF xs' ys
 
-appendListF :: Monad m => ListF a (ListT m a) -> ListT m a -> ListT m a
+appendListF :: (Monad m) => ListF a (ListT m a) -> ListT m a -> ListT m a
 appendListF NilF ys = ys
 appendListF (ConsF x xs) ys = ListT $ pure $ ConsF x $ appendListT xs ys
 
@@ -172,14 +179,14 @@ toListT :: (Foldable t, Applicative m) => t a -> ListT m a
 toListT = foldr' consListT emptyListT
 
 -- | Convert a 'ListT' into a '[]' and sequence the effects.
-fromListT :: Monad m => ListT m a -> m [a]
+fromListT :: (Monad m) => ListT m a -> m [a]
 fromListT (ListT m) =
   m >>= \case
     NilF -> pure []
     ConsF a xs -> fmap (a :) $ fromListT xs
 
 -- | The join operation of the 'ListT' @m@ monad.
-joinListT :: Monad m => ListT m (ListT m a) -> ListT m a
+joinListT :: (Monad m) => ListT m (ListT m a) -> ListT m a
 joinListT (ListT ma) = ListT $ do
   fma <- ma
   case fma of
@@ -192,5 +199,5 @@ joinListT (ListT ma) = ListT $ do
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @ListT m@ to @ListT n@.
-hoistListT :: Functor n => (forall x. m x -> n x) -> ListT m a -> ListT n a
+hoistListT :: (Functor n) => (forall x. m x -> n x) -> ListT m a -> ListT n a
 hoistListT f = ListT . fmap (fmap (hoistListT f)) . f . runListT

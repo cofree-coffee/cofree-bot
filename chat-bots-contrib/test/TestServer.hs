@@ -13,10 +13,10 @@ where
 
 import Control.Monad.Except
   ( MonadError (..),
-    MonadTrans (..),
     liftEither,
     runExceptT,
   )
+import Control.Monad.Trans (MonadTrans (..))
 import Data.Chat.Bot (Behavior, hoistBehavior)
 import Data.Chat.Server
   ( Env (..),
@@ -69,7 +69,7 @@ conformsToScript' behavior script = do
   fmap onlyLeft $ runExceptT $ bindFix $ annihilate server (hoistBehavior lift behavior)
   where
     -- TODO: move these somewhere else
-    bindFix :: Monad m => Fix m -> m Void
+    bindFix :: (Monad m) => Fix m -> m Void
     bindFix (Fix m) = m >>= bindFix
 
     onlyLeft :: Either a Void -> a

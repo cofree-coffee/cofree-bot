@@ -33,10 +33,11 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad.Except (MonadIO (..), MonadTrans (..))
+import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader, ReaderT (..))
 import Control.Monad.State (MonadState, StateT (..))
+import Control.Monad.Trans (MonadTrans (..))
 import Data.Align
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bifunctor.Monoidal qualified as Bifunctor
@@ -90,18 +91,18 @@ newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
     via StateT s (ReaderT i (ListT m))
 
-instance Monad m => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m) where
+instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m) where
   combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (i, i') (o, o')
   combine (Bot b1, Bot b2) = Bot $ \(s, t) (i, i') ->
     liftA2 (curry (\((o, s'), (o', t')) -> ((o, o'), (s', t')))) (b1 s i) (b2 t i')
 
-instance Functor m => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m) where
+instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m) where
   combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (Either i i') (Either o o')
   combine (Bot m1, Bot m2) = Bot $ \(s, t) -> \case
     Left i -> (bimap Left (,t) <$> m1 s i)
     Right i' -> bimap Right (s,) <$> m2 t i'
 
-instance Monad m => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) where
+instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) where
   combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (These i i') (These o o')
   combine (Bot b1, Bot b2) = Bot $ \(s, t) -> \case
     This i -> bimap This (,t) <$> b1 s i
@@ -126,43 +127,43 @@ instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either V
 
 instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
 
-instance Functor f => Profunctor (Bot f s) where
-  dimap :: Functor f => (a -> b) -> (c -> d) -> Bot f s b c -> Bot f s a d
+instance (Functor f) => Profunctor (Bot f s) where
+  dimap :: (Functor f) => (a -> b) -> (c -> d) -> Bot f s b c -> Bot f s a d
   dimap f g (Bot bot) = do
     Bot $ \s i -> fmap (first' g) $ bot s (f i)
 
-instance Functor f => Strong (Bot f s) where
-  first' :: Functor f => Bot f s a b -> Bot f s (a, c) (b, c)
+instance (Functor f) => Strong (Bot f s) where
+  first' :: (Functor f) => Bot f s a b -> Bot f s (a, c) (b, c)
   first' (Bot bot) = Bot $ \s (a, c) -> fmap (first' (,c)) $ bot s a
 
 -- | 'Bot' is an invariant functor on @s@ but our types don't quite
 -- fit the @Invariant@ typeclass.
-invmapBot :: Functor m => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
+invmapBot :: (Functor m) => (s -> s') -> (s' -> s) -> Bot m s i o -> Bot m s' i o
 invmapBot f g (Bot b) = Bot $ \s i -> (b (g s) i) <&> bimap id f
 
 --------------------------------------------------------------------------------
 
 -- | Lift the 'ListT' Nil value into @Bot m s i o@.
-emptyBot :: Monad m => Bot m s i o
+emptyBot :: (Monad m) => Bot m s i o
 emptyBot = Bot $ \_ _ -> emptyListT
 
 -- | Construct a 'Bot' which maps from @i@ to @o@ without using its
 -- state @s@ or monadic action @m@.
-pureStatelessBot :: Monad m => (i -> o) -> Bot m s i o
+pureStatelessBot :: (Monad m) => (i -> o) -> Bot m s i o
 pureStatelessBot f = Bot $ \s i -> pure $ (,) (f i) s
 
 -- | Contramap the input to a bot with the ability to fail and only
 -- run the bot on success.
-contramapMaybeBot :: Applicative m => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
+contramapMaybeBot :: (Applicative m) => (i -> Maybe i') -> Bot m s i' o -> Bot m s i o
 contramapMaybeBot f (Bot bot) = Bot $ \s i -> maybe emptyListT (bot s) (f i)
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @Bot m s i o@ to @Bot n s i o@
-hoistBot :: Functor n => (forall x. m x -> n x) -> Bot m s i o -> Bot n s i o
+hoistBot :: (Functor n) => (forall x. m x -> n x) -> Bot m s i o -> Bot n s i o
 hoistBot f (Bot b) = Bot $ \s i -> hoistListT f $ b s i
 
 -- | Lift a monadic effect @m o@ into a @Bot m s i o@.
-liftEffect :: Monad m => m o -> Bot m s i o
+liftEffect :: (Monad m) => m o -> Bot m s i o
 liftEffect m = Bot $ \s _ -> ListT $ do
   o <- m
   pure $ ConsF (o, s) (ListT $ pure NilF)
@@ -170,7 +171,7 @@ liftEffect m = Bot $ \s _ -> ListT $ do
 -- | Generate the fixed point of @Bot m s i o@ by recursively
 -- construction an @s -> Behavior m i o@ action and tupling it with
 -- the output @o@ from its parent action.
-fixBot :: forall m s i o. Functor m => Bot m s i o -> s -> Behavior m i o
+fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> Behavior m i o
 fixBot (Bot b) = go
   where
     go :: s -> Behavior m i o
@@ -194,12 +195,12 @@ fixBotPersistent cachePath (Bot bot) initialState = do
           liftIO $ saveState cachePath newState
           pure (output, go)
 
-readState :: Read s => FilePath -> IO (Maybe s)
+readState :: (Read s) => FilePath -> IO (Maybe s)
 readState cachePath = do
   s <- readFileMaybe $ cachePath </> "state"
   pure $ fmap (read . Text.unpack) s
 
-saveState :: Show s => FilePath -> s -> IO ()
+saveState :: (Show s) => FilePath -> s -> IO ()
 saveState cachePath state' = do
   createDirectoryIfMissing True cachePath
   writeFile (cachePath </> "state") (show state')
@@ -214,8 +215,8 @@ saveState cachePath state' = do
 -- See 'annihilate' for how this interaction occurs in practice.
 newtype Behavior m i o = Behavior {runBehavior :: i -> ListT m (o, (Behavior m i o))}
 
-instance Functor m => Profunctor (Behavior m) where
-  dimap :: Functor m => (a -> b) -> (c -> d) -> Behavior m b c -> Behavior m a d
+instance (Functor m) => Profunctor (Behavior m) where
+  dimap :: (Functor m) => (a -> b) -> (c -> d) -> Behavior m b c -> Behavior m a d
   dimap f g (Behavior b) = Behavior $ dimap f (fmap (bimap g (dimap f g))) b
 
 instance (Monad m) => Bifunctor.Semigroupal (->) (,) (,) (,) (Behavior m) where
@@ -229,19 +230,19 @@ instance (Monad m) => Bifunctor.Unital (->) () () () (Behavior m) where
 
 instance (Monad m) => Bifunctor.Monoidal (->) (,) () (,) () (,) () (Behavior m)
 
-instance Monad m => Choice (Behavior m) where
-  left' :: Monad m => Behavior m a b -> Behavior m (Either a c) (Either b c)
+instance (Monad m) => Choice (Behavior m) where
+  left' :: (Monad m) => Behavior m a b -> Behavior m (Either a c) (Either b c)
   left' (Behavior b) =
     Behavior $
       either
         (fmap (bimap Left left') . b)
         (pure . (,left' (Behavior b)) . Right)
 
-instance Functor m => Strong (Behavior m) where
-  first' :: Functor m => Behavior m a b -> Behavior m (a, c) (b, c)
+instance (Functor m) => Strong (Behavior m) where
+  first' :: (Functor m) => Behavior m a b -> Behavior m (a, c) (b, c)
   first' (Behavior b) = Behavior $ \(a, c) -> fmap (bimap (,c) first') (b a)
 
-instance Monad m => Traversing (Behavior m) where
+instance (Monad m) => Traversing (Behavior m) where
   -- TODO: write wander instead for efficiency
   traverse' :: (Monad m, Traversable f) => Behavior m a b -> Behavior m (f a) (f b)
   traverse' b = Behavior $ \is ->
@@ -257,7 +258,7 @@ instance Monad m => Traversing (Behavior m) where
 
 -- | Batch process a list of inputs @i@ with a single 'Behavior',
 -- interleaving the effects, and collecting the resulting outputs @o@.
-batch :: Monad m => Behavior m i o -> Behavior m [i] o
+batch :: (Monad m) => Behavior m i o -> Behavior m [i] o
 batch (Behavior b) = Behavior $ fmap (fmap batch) . asum . fmap b
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from

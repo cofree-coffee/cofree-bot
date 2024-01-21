@@ -31,9 +31,9 @@ satisfies gen laws = do
 
 satisfies1 ::
   forall c f.
-  (c f, forall x. Eq x => Eq (f x), forall x. Show x => Show (f x)) =>
+  (c f, forall x. (Eq x) => Eq (f x), forall x. (Show x) => Show (f x)) =>
   (forall a. Gen a -> Gen (f a)) ->
-  ((c f, forall x. Eq x => Eq (f x), forall x. Show x => Show (f x)) => (forall x. Gen x -> Gen (f x)) -> Classes.Laws) ->
+  ((c f, forall x. (Eq x) => Eq (f x), forall x. (Show x) => Show (f x)) => (forall x. Gen x -> Gen (f x)) -> Classes.Laws) ->
   Spec
 satisfies1 gen laws = case laws gen of
   Classes.Laws className properties -> do

@@ -18,7 +18,7 @@ import Data.These (These (..), these)
 --------------------------------------------------------------------------------
 
 applySerializer ::
-  Applicative m =>
+  (Applicative m) =>
   Bot m s bi bo ->
   Serializer so si bo bi ->
   Bot m s so si
