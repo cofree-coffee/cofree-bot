@@ -11,7 +11,9 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Lens
+import Control.Monad (zipWithM_)
 import Control.Monad.Except
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization
 import Data.Chat.Server
@@ -87,7 +89,7 @@ matrix session cache = Server $ do
           -- Do it again
           runServer $ go filterId (Just newSince)
 
-embedTextBot :: Applicative m => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
+embedTextBot :: (Applicative m) => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
 embedTextBot = second' . flip applySerializer eventSerializer
 
 eventSerializer :: Serializer Event Event Text Text

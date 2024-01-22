@@ -1,4 +1,6 @@
 -- | Bidirectional parsing to map 'Bot' I/O to 'Server' I/O.
+--
+-- TODO: Make monoidal-functor instances
 module Data.Chat.Bot.Serialization where
 
 --------------------------------------------------------------------------------
@@ -16,7 +18,7 @@ import Data.These (These (..), these)
 --------------------------------------------------------------------------------
 
 applySerializer ::
-  Applicative m =>
+  (Applicative m) =>
   Bot m s bi bo ->
   Serializer so si bo bi ->
   Bot m s so si
