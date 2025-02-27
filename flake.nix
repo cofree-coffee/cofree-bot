@@ -54,6 +54,7 @@
               ghcid
               haskell.compiler.${compiler}
               haskell-language-server
+              just
               pkg-config
               ormolu
               shellcheck
