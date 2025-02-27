@@ -26,7 +26,7 @@ main = hspec $ do
 
 scriptedTestsSpec :: Spec
 scriptedTestsSpec = describe "Scripted tests" $ do
-  let myBehavior :: forall m. Monad m => Behavior m Text Text
+  let myBehavior :: forall m. (Monad m) => Behavior m Text Text
       myBehavior = flip fixBot True $ Bot $ \s _ -> return (pack $ show s, not s)
 
   it "can deal with bots that respond correctly" $ do

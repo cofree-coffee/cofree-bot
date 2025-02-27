@@ -17,4 +17,3 @@ pkgs.dockerTools.buildLayeredImage {
     ];
   };
 }
-

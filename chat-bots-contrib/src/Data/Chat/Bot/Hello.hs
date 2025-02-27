@@ -20,7 +20,7 @@ import Data.Text qualified as Text
 --------------------------------------------------------------------------------
 
 -- | A pure, stateless bot which produces a 'Text' output.
-helloBot :: Monad m => Bot m s () Text
+helloBot :: (Monad m) => Bot m s () Text
 helloBot = Bot $ \s () -> pure ("Are you talking to me, punk?", s)
 
 --------------------------------------------------------------------------------

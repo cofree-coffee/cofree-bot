@@ -45,7 +45,7 @@ type RoomAware bot m s i o = bot m s (RoomID, i) (RoomID, o)
 --
 -- Note: This function exists largely to demonstrate how we can
 -- manipulate 'Bot' behavior through tensoring.
-mkRoomAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
+mkRoomAware :: (Functor m) => Bot m s i o -> RoomAware Bot m s i o
 mkRoomAware = second'
 
 --------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ type UserAware bot m s i o = bot m s (UserID, i) (UserID, o)
 --
 -- Note: This function exists largely to demonstrate how we can
 -- manipulate 'Bot' behavior through tensoring.
-mkUserAware :: Functor m => Bot m s i o -> RoomAware Bot m s i o
+mkUserAware :: (Functor m) => Bot m s i o -> RoomAware Bot m s i o
 mkUserAware = second'
 
 --------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ mkUserAware = second'
 --
 -- @end n@ - Terminate session @n@.
 sessionize ::
-  Monad m =>
+  (Monad m) =>
   s ->
   Bot m s i o ->
   Bot m (SessionState s) (SessionInput i) (SessionOutput o)

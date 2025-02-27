@@ -94,7 +94,7 @@ cliMain xdgCache = withProcessWait_ ghciConfig $ \process -> do
 
 --------------------------------------------------------------------------------
 
-unsafeCrashInIO :: Show e => ExceptT e IO a -> IO a
+unsafeCrashInIO :: (Show e) => ExceptT e IO a -> IO a
 unsafeCrashInIO = runExceptT >=> either (fail . show) pure
 
 matrixMain :: ClientSession -> FilePath -> IO ()
