@@ -44,12 +44,12 @@ import Data.Profunctor (Profunctor (..))
 newtype Env m s o i = Env {runEnv :: s -> m (i, [o] -> s)}
   deriving (Functor)
 
-instance Functor m => Profunctor (Env m s) where
+instance (Functor m) => Profunctor (Env m s) where
   dimap f g (Env env) = Env $ fmap (fmap (bimap g (lmap (fmap f)))) env
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @Env m s o i@ to @Env n s o i@
-hoistEnv :: Functor n => (forall x. m x -> n x) -> Env m s o i -> Env n s o i
+hoistEnv :: (Functor n) => (forall x. m x -> n x) -> Env m s o i -> Env n s o i
 hoistEnv f (Env env) = Env $ \s -> f $ env s
 
 --------------------------------------------------------------------------------
@@ -61,14 +61,14 @@ hoistEnv f (Env env) = Env $ \s -> f $ env s
 newtype Server m o i = Server {runServer :: m (i, [o] -> Server m o i)}
   deriving (Functor)
 
-instance Functor m => Profunctor (Server m) where
+instance (Functor m) => Profunctor (Server m) where
   dimap f g (Server serve) =
     Server $ fmap (bimap g (dimap (fmap f) (dimap f g))) serve
 
 -- | Generate the fixed point of @Env m s o i@ by recursively
 -- construction an @s -> Server m o i@ action and tupling it with
 -- the output @i@ from its parent action.
-fixEnv :: forall m s o i. Functor m => Env m s o i -> s -> Server m o i
+fixEnv :: forall m s o i. (Functor m) => Env m s o i -> s -> Server m o i
 fixEnv (Env b) = go
   where
     go :: s -> Server m o i
@@ -76,7 +76,7 @@ fixEnv (Env b) = go
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @Env m s o i@ to @Env n s o i@
-hoistServer :: Functor n => (forall x. m x -> n x) -> Server m o i -> Server n o i
+hoistServer :: (Functor n) => (forall x. m x -> n x) -> Server m o i -> Server n o i
 hoistServer f (Server server) = Server $ fmap (fmap (fmap (hoistServer f))) $ f server
 
 -- | Lift a computation on the monad @m@ to the constructed monad @t
@@ -88,7 +88,7 @@ liftServer = hoistServer lift
 
 -- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
 -- monadic action @m@.
-annihilate :: Monad m => Server m o i -> Behavior m i o -> Fix m
+annihilate :: (Monad m) => Server m o i -> Behavior m i o -> Fix m
 annihilate (Server server) b@(Behavior botBehavior) = Fix $ do
   (i, nextServer) <- server
   xs <- fromListT $ botBehavior i
@@ -100,5 +100,5 @@ annihilate (Server server) b@(Behavior botBehavior) = Fix $ do
       _ -> snd $ last xs
 
 -- | Recursively unfold fixed point @Fix m@.
-loop :: Monad m => Fix m -> m x
+loop :: (Monad m) => Fix m -> m x
 loop (Fix x) = x >>= loop

@@ -21,7 +21,7 @@ import Data.Text qualified as Text
 
 --------------------------------------------------------------------------------
 
-updogBot :: Monad m => Bot m s Updog Text
+updogBot :: (Monad m) => Bot m s Updog Text
 updogBot = Bot $ \s -> \case
   Updog -> toListT [("nothin much whats up with you dog", s), ("HAH GOTTEM", s)]
   Snakesay -> toListT [("Hissss, hisssss", s), ("HAH GOTTEM", s)]

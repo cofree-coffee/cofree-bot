@@ -50,7 +50,7 @@ pattern a :& b = (a, b)
 
 infixr 9 :&
 
-(|*|) :: Applicative f => f a -> f b -> f (a /\ b)
+(|*|) :: (Applicative f) => f a -> f b -> f (a /\ b)
 (|*|) = liftA2 (,)
 
 infixr 9 |*|
