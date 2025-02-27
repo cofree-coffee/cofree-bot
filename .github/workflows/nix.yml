@@ -7,18 +7,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout 🛎️
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Install Nix ❄
-      uses: cachix/install-nix-action@v20
+      uses: cachix/install-nix-action@v27
       with:
         nix_path: nixpkgs=channel:nixos-unstable
 
     - name: Link Cachix 🔌
-      uses: cachix/cachix-action@v12
+      uses: cachix/cachix-action@v15
       with:
         name: cofree-coffee
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     
-    - name: Deploy 🚀
+    - name: Build 🔨
       run: nix build
