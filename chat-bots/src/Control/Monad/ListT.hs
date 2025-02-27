@@ -25,7 +25,11 @@ where
 
 --------------------------------------------------------------------------------
 
+#if MIN_VERSION_base(4,18,0)
+import Control.Applicative (Alternative (..))
+#else
 import Control.Applicative (Alternative (..), Applicative (..))
+#endif
 import Control.Monad (ap)
 #if MIN_VERSION_base(4,18,0)
 import Control.Monad.Except (MonadError (..))

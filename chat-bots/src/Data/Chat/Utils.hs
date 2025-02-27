@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternSynonyms #-}
 
 module Data.Chat.Utils
@@ -28,7 +29,9 @@ where
 
 -------------------------------------------------------------------------------
 
-import Control.Applicative
+#if !MIN_VERSION_base(4,18,0)
+import Control.Applicative (liftA2)
+#endif
 import Control.Arrow ((&&&))
 import Control.Exception (catch, throwIO)
 import Data.Kind
@@ -41,7 +44,7 @@ import System.IO.Error (isDoesNotExistError)
 
 type (/\) = (,)
 
-infixr 6 /\
+infixr 6 /\\
 
 pattern (:&) :: a -> b -> (a, b)
 pattern a :& b = (a, b)
@@ -71,7 +74,7 @@ infixr 6 \*/
 
 type a /+\ b = These a b
 
-infixr 6 /+\
+infixr 6 /+\\
 
 can :: Maybe a -> Maybe b -> Maybe (a /+\ b)
 can Nothing Nothing = Nothing

@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 module Data.Chat.Bot.Updog
   ( -- * Bot
     updogBot,
@@ -11,7 +13,9 @@ where
 
 --------------------------------------------------------------------------------
 
+#if !MIN_VERSION_base(4,18,0)
 import Control.Applicative (liftA2)
+#endif
 import Control.Monad.ListT (toListT)
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization

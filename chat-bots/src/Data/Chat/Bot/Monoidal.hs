@@ -15,12 +15,10 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Monad.ListT (toListT)
-import Data.Align
-import Data.Bifunctor.Monoidal.Specialized (split')
 import Data.Chat.Bot (Bot (..))
 import Data.Chat.Utils (type (/+\), type (/\), type (\*/), type (\/))
 import Data.Functor.Monoidal qualified as Functor
-import Data.Profunctor (Profunctor (..), Strong (..))
+import Data.Profunctor (Strong (..))
 import Data.These (These (..))
 import Data.Trifunctor.Monoidal ((|***|))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
