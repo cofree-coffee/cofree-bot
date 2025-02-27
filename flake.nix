@@ -8,7 +8,7 @@
 
   outputs = { self, nixpkgs, flake-utils }:
     let
-      ghcVersion = "963";
+      ghcVersion = "982";
       compiler = "ghc${ghcVersion}";
     in
     flake-utils.lib.eachDefaultSystem (system:
