@@ -34,7 +34,7 @@ jobs:
     strategy:
       matrix:
         cabal: ["3.10"]
-        ghc: ["9.2.8", "9.4.8", "9.6.3"]
+        ghc: ["9.2.8", "9.4.8", "9.6.3", "9.8.2"]
 
     env:
       CONFIG: "--project-file=cabal.project"
