@@ -2,29 +2,16 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = github:NixOS/nixpkgs/nixos-23.11;
-
-    flake-utils = {
-      url = github:numtide/flake-utils;
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nixpkgs.url = github:nixos/nixpkgs/24.05;
+    flake-utils.url = github:numtide/flake-utils;
   };
 
   outputs = { self, nixpkgs, flake-utils }:
     let
       ghcVersion = "963";
       compiler = "ghc${ghcVersion}";
-      # default systems compatible with pre-commit-hooks.nix
-      # https://github.com/cachix/pre-commit-hooks.nix/pull/122
-      defaultSystems = [
-        "aarch64-linux"
-        # "aarch64-darwin"
-        "i686-linux"
-        "x86_64-darwin"
-        "x86_64-linux"
-      ];
     in
-    flake-utils.lib.eachSystem defaultSystems (system:
+    flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
 
@@ -36,7 +23,6 @@
         # cabal2nix uses IFD
         hsPkgs = evalPkgs.haskell.packages.${compiler}.override {
           overrides = hfinal: hprev: {
-            bifunctors = hfinal.bifunctors_5_6_1;
             chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
             chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
@@ -48,7 +34,6 @@
                 sha256 = "sha256-XnSffGuRTzr5LCrxu8x7AU3hmNk314Ip2ky2Z9xRJI0=";
               })
               { };
-            semigroupoids = hfinal.semigroupoids_6_0_0_1;
           };
         };
 
@@ -61,18 +46,21 @@
 
         # Note: cannot reference anything that depends on `evalPkgs` like `hsPkgs`
         # otherwise non-x86_64-linux users will not be able to build the dev env
-        devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            cabal2nix
-            cabal-install
-            ghcid
-            haskell.compiler.${compiler}
-            haskell.packages.${compiler}.haskell-language-server
-            nixpkgs-fmt
-            ormolu
-            shellcheck
-            zlib
-          ] ++ (builtins.attrValues scripts);
+        devShells = {
+          default = pkgs.mkShell {
+            buildInputs = with pkgs; [
+              cabal2nix
+              cabal-install
+              ghcid
+              haskell.compiler.${compiler}
+              haskell-language-server
+              pkg-config
+              ormolu
+              shellcheck
+              zlib
+              zlib.dev
+            ] ++ (builtins.attrValues scripts);
+          };
         };
 
         packages = flake-utils.lib.flattenTree {
@@ -83,8 +71,9 @@
           chat-bots = hsPkgs.chat-bots;
           chat-bots-contrib = hsPkgs.chat-bots-contrib;
           cofree-bot = hsPkgs.cofree-bot;
+          default = hsPkgs.cofree-bot;
         };
 
-        defaultPackage = packages.cofree-bot;
+        formatter = pkgs.nixfmt-rfc-style;
       });
 }
