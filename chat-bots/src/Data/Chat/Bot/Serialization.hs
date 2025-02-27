@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | Bidirectional parsing to map 'Bot' I/O to 'Server' I/O.
 --
 -- TODO: Make monoidal-functor instances
@@ -5,7 +7,9 @@ module Data.Chat.Bot.Serialization where
 
 --------------------------------------------------------------------------------
 
+#if !MIN_VERSION_base(4,18,0)
 import Control.Applicative (liftA2)
+#endif
 import Control.Monad ((>=>))
 import Control.Monad.ListT (emptyListT)
 import Data.Attoparsec.Text qualified as P
@@ -47,7 +51,7 @@ prefix prefix' Serializer {..} =
           printer = printer
         }
 
-infixr 6 /+\
+infixr 6 /+\\
 
 (/+\) :: TextSerializer o i -> TextSerializer o' i' -> TextSerializer (o /+\ o') (i /+\ i')
 (/+\) (Serializer par1 pri1) (Serializer par2 pri2) = Serializer (par1 *|* par2) (pri1 +|+ pri2)

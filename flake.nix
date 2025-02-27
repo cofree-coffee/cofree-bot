@@ -65,7 +65,7 @@
                 cabal-install
                 ghcid
                 haskell.compiler.${compiler}
-                haskell-language-server
+                haskell.packages.${compiler}.haskell-language-server
                 just
                 pkg-config
                 ormolu

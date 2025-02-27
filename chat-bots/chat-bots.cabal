@@ -42,6 +42,7 @@ common common-settings
     -Wincomplete-uni-patterns
     -Wpartial-fields
     -Werror=missing-home-modules
+    -Wno-name-shadowing
 
 --------------------------------------------------------------------------------
 

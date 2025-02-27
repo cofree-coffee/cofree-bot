@@ -38,11 +38,12 @@ import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader, ReaderT (..))
 import Control.Monad.State (MonadState, StateT (..))
 import Control.Monad.Trans (MonadTrans (..))
-import Data.Align
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bifunctor.Monoidal qualified as Bifunctor
 import Data.Chat.Utils (readFileMaybe)
-#if MIN_VERSION_base(4,16,1)
+#if MIN_VERSION_base(4,18,0)
+import Control.Applicative (asum)
+#elif MIN_VERSION_base(4,16,1)
 import Control.Applicative (asum, liftA2)
 #else
 import Control.Applicative (liftA2)
