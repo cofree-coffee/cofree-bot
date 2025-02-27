@@ -2,16 +2,22 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = github:nixos/nixpkgs/24.05;
-    flake-utils.url = github:numtide/flake-utils;
+    nixpkgs.url = "github:nixos/nixpkgs/24.05";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      flake-utils,
+    }:
     let
       ghcVersion = "982";
       compiler = "ghc${ghcVersion}";
     in
-    flake-utils.lib.eachDefaultSystem (system:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs { inherit system; };
 
@@ -26,14 +32,12 @@
             chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
             chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
-            monoidal-functors = hfinal.callCabal2nix "monoidal-functors"
-              (pkgs.fetchFromGitHub {
-                owner = "solomon-b";
-                repo = "monoidal-functors";
-                rev = "eeb61da953592b7c01ab319b14f961e8f04c82c0";
-                sha256 = "sha256-XnSffGuRTzr5LCrxu8x7AU3hmNk314Ip2ky2Z9xRJI0=";
-              })
-              { };
+            monoidal-functors = hfinal.callCabal2nix "monoidal-functors" (pkgs.fetchFromGitHub {
+              owner = "solomon-b";
+              repo = "monoidal-functors";
+              rev = "eeb61da953592b7c01ab319b14f961e8f04c82c0";
+              sha256 = "sha256-XnSffGuRTzr5LCrxu8x7AU3hmNk314Ip2ky2Z9xRJI0=";
+            }) { };
           };
         };
 
@@ -54,19 +58,22 @@
               p.cofree-bot
               p.monoidal-functors
             ];
-            buildInputs = with pkgs; [
-              cabal2nix
-              cabal-install
-              ghcid
-              haskell.compiler.${compiler}
-              haskell-language-server
-              just
-              pkg-config
-              ormolu
-              shellcheck
-              zlib
-              zlib.dev
-            ] ++ (builtins.attrValues scripts);
+            buildInputs =
+              with pkgs;
+              [
+                cabal2nix
+                cabal-install
+                ghcid
+                haskell.compiler.${compiler}
+                haskell-language-server
+                just
+                pkg-config
+                ormolu
+                shellcheck
+                zlib
+                zlib.dev
+              ]
+              ++ (builtins.attrValues scripts);
           };
         };
 
@@ -82,5 +89,6 @@
         };
 
         formatter = pkgs.nixfmt-rfc-style;
-      });
+      }
+    );
 }
