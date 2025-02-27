@@ -47,7 +47,13 @@
         # Note: cannot reference anything that depends on `evalPkgs` like `hsPkgs`
         # otherwise non-x86_64-linux users will not be able to build the dev env
         devShells = {
-          default = pkgs.mkShell {
+          default = hsPkgs.shellFor {
+            packages = p: [
+              p.chat-bots
+              p.chat-bots-contrib
+              p.cofree-bot
+              p.monoidal-functors
+            ];
             buildInputs = with pkgs; [
               cabal2nix
               cabal-install
