@@ -44,6 +44,7 @@ common common-settings
 common common-libraries
   build-depends:
     , base           >=2 && <5
+    , data-fix
     , monoidal-functors
     , profunctors
     , these
@@ -57,6 +58,7 @@ library
 
   hs-source-dirs:  src
   exposed-modules:
+    Data.Machine
     Data.Machine.Mealy
     Data.Machine.Mealy.Coalgebra
     Data.Machine.Mealy.Coalgebra.Monoidal
