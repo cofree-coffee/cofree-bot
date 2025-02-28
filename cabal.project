@@ -1,6 +1,7 @@
 packages: chat-bots
 packages: chat-bots-contrib 
 packages: cofree-bot
+packages: list-t
                     
 source-repository-package
   type: git

@@ -51,6 +51,7 @@ common common-libraries
     , base           >=2 && <5
     , bytestring
     , filepath
+    , list-t
     , matrix-client
     , network-uri
     , profunctors
