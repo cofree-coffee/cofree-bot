@@ -1,0 +1,69 @@
+cabal-version: 3.0
+name:          machines-coalgebras
+version:       0.1.0.0
+synopsis:      Coalgebraic encoding of Mealy and Moore machines
+bug-reports:   https://github.com/cofree-coffee/cofree-bot
+license:       MIT
+author:        Solomon, Asad, and the Cofree-Coffee community
+maintainer:    ssbothwell@gmail.com
+category:      finite-state-machines, coalgebras, streaming
+
+--------------------------------------------------------------------------------
+
+common common-settings
+  default-language:   Haskell2010
+  default-extensions:
+    DeriveFunctor
+    DerivingVia
+    FlexibleContexts
+    FlexibleInstances
+    ImportQualifiedPost
+    InstanceSigs
+    LambdaCase
+    MultiParamTypeClasses
+    OverloadedStrings
+    RankNTypes
+    ScopedTypeVariables
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:
+    -Wall
+    -Wcpp-undef
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Werror=missing-home-modules
+    -Wno-name-shadowing
+
+--------------------------------------------------------------------------------
+
+common common-libraries
+  build-depends:
+    , base           >=2 && <5
+    , monoidal-functors
+    , profunctors
+    , these
+
+--------------------------------------------------------------------------------
+
+library
+  import:
+    , common-libraries
+    , common-settings
+
+  hs-source-dirs:  src
+  exposed-modules:
+    Data.Machine.Mealy
+    Data.Machine.Mealy.Coalgebra
+    Data.Machine.Mealy.Coalgebra.Monoidal
+    Data.Machine.Moore
+    Data.Machine.Moore.Coalgebra
+    Data.Machine.Moore.Coalgebra.Monoidal
+
+  build-depends:
+    , bifunctors
+    , mtl
