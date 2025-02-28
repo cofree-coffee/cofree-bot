@@ -32,6 +32,7 @@
             chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
             chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
+            list-t = hfinal.callCabal2nix "list-t" ./list-t/. { };
             monoidal-functors = hfinal.callCabal2nix "monoidal-functors" (pkgs.fetchFromGitHub {
               owner = "solomon-b";
               repo = "monoidal-functors";
@@ -57,6 +58,7 @@
               p.chat-bots-contrib
               p.cofree-bot
               p.monoidal-functors
+              p.list-t
             ];
             buildInputs =
               with pkgs;

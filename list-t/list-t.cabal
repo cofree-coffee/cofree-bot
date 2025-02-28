@@ -1,38 +1,25 @@
 cabal-version: 3.0
-name:          chat-bots
+name:          list-t
 version:       0.1.0.0
-synopsis:      A library for building bots compositionally. 
+synopsis:      ListT Done Right
 bug-reports:   https://github.com/cofree-coffee/cofree-bot
 license:       MIT
 author:        Solomon, Asad, and the Cofree-Coffee community
 maintainer:    ssbothwell@gmail.com
-category:      bot, chat-bot, finite-state-machines, matrix
+category:      ListT, streaming, monads
 
 --------------------------------------------------------------------------------
 
 common common-settings
   default-language:   Haskell2010
   default-extensions:
-    DataKinds
     DeriveFunctor
-    DeriveGeneric
     DerivingVia
-    FlexibleContexts
     FlexibleInstances
-    GeneralizedNewtypeDeriving
     ImportQualifiedPost
     InstanceSigs
     LambdaCase
-    NamedFieldPuns
-    OverloadedStrings
-    PatternSynonyms
-    RecordWildCards
-    ScopedTypeVariables
-    StandaloneKindSignatures
-    TupleSections
     TypeApplications
-    TypeFamilies
-    TypeOperators
 
   ghc-options:
     -Wall
@@ -49,16 +36,9 @@ common common-settings
 common common-libraries
   build-depends:
     , base           >=2 && <5
-    , bytestring
-    , list-t
-    , matrix-client
     , monoidal-functors
-    , network-uri
-    , profunctors
     , semialign
-    , text
     , these
-    , typed-process
 
 --------------------------------------------------------------------------------
 
@@ -69,35 +49,15 @@ library
 
   hs-source-dirs:  src
   exposed-modules:
-    Data.Chat.Bot
-    Data.Chat.Bot.Monoidal
-    Data.Chat.Bot.Context
-    Data.Chat.Bot.Serialization
-    Data.Chat.Server
-    Data.Chat.Server.Repl
-    Data.Chat.Utils
+    Control.Monad.ListT
 
   build-depends:
-    , aeson
-    , attoparsec
-    , containers
-    , data-fix
-    , directory
-    , filepath
-    , hint
-    , http-client
-    , lens
-    , monad-loops
     , mtl
-    , pretty-simple
-    , process
-    , random
     , transformers
-    , vector
 
 --------------------------------------------------------------------------------
 
-test-suite chat-bot-tests
+test-suite list-t-tests
   import:
     , common-settings
 
@@ -107,7 +67,7 @@ test-suite chat-bot-tests
 
   build-depends:
     , base           >=2 && <5
-    , chat-bots
+    , list-t
     , hedgehog
     , hedgehog-classes
     , hspec
