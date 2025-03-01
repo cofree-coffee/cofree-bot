@@ -20,13 +20,13 @@ import Control.Monad.ListT (ListT, hoistListT)
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Chat.Server
   ( Env (..),
-    Server (..),
     annihilate,
     fixEnv,
   )
 import Data.Fix (Fix (..))
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
 import Data.Machine.Mealy (MealyM', hoistMealyM')
+import Data.Machine.Moore (MooreM')
 import Data.Text (Text)
 import Data.Void
 import Scripts
@@ -49,7 +49,7 @@ initReplayServerState (Script interactions) = case interactions of
 replayServer ::
   (Eq o, MonadError (Completion i o) m) =>
   ReplayServerState i o ->
-  Server m o i
+  MooreM' m [o] i
 replayServer = fixEnv $ Env $ (liftEither .) $ \case
   Left completion -> Left completion
   Right (Interaction prompt expectedResponses :| rest) -> Right $ (prompt,) $ \actualResponses ->

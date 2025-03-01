@@ -52,6 +52,7 @@ common common-libraries
     , bytestring
     , filepath
     , list-t
+    , machines-coalgebras
     , matrix-client
     , network-uri
     , profunctors
@@ -118,7 +119,6 @@ test-suite chat-bots-contrib-test
     , hspec-core
     , lens
     , list-t
-    , machines-coalgebras
     , mtl
     , parsec
     , template-haskell
