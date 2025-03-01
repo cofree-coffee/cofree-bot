@@ -18,11 +18,11 @@ where
 
 --------------------------------------------------------------------------------
 
-import Control.Monad.ListT (fromListT)
+import Control.Monad.ListT (ListT, fromListT)
 import Control.Monad.Trans.Class (MonadTrans (..))
 import Data.Bifunctor (bimap)
-import Data.Chat.Bot (Behavior (..))
 import Data.Fix (Fix (..))
+import Data.Machine.Mealy (MealyM' (..))
 import Data.Profunctor (Profunctor (..))
 
 --------------------------------------------------------------------------------
@@ -88,10 +88,10 @@ liftServer = hoistServer lift
 
 -- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
 -- monadic action @m@.
-annihilate :: (Monad m) => Server m o i -> Behavior m i o -> Fix m
-annihilate (Server server) b@(Behavior botBehavior) = Fix $ do
+annihilate :: (Monad m) => Server m o i -> MealyM' (ListT m) i o -> Fix m
+annihilate (Server server) b@(MealyM' mealy) = Fix $ do
   (i, nextServer) <- server
-  xs <- fromListT $ botBehavior i
+  xs <- fromListT $ mealy i
   let o = fmap fst $ xs
       server' = nextServer o
   pure $

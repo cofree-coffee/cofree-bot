@@ -117,6 +117,8 @@ test-suite chat-bots-contrib-test
     , hspec
     , hspec-core
     , lens
+    , list-t
+    , machines-coalgebras
     , mtl
     , parsec
     , template-haskell
