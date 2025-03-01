@@ -49,7 +49,7 @@ import Data.Void (Void, absurd)
 -- functions into @S × I → M (O × S)@. This definition is isomorphic.
 newtype MealyM m s i o = MealyM {runMealy :: s -> i -> m (o, s)}
   deriving
-    (Functor, Applicative, Monad, MonadState s, MonadReader i)
+    (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
     via StateT s (ReaderT i m)
 
 -- | A Mealy Machine consists of:

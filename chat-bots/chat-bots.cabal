@@ -51,6 +51,7 @@ common common-libraries
     , base           >=2 && <5
     , bytestring
     , list-t
+    , machines-coalgebras
     , matrix-client
     , monoidal-functors
     , network-uri

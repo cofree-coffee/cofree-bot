@@ -2,6 +2,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
 
 -- | The core Chat Bot encoding.
 module Data.Chat.Bot
@@ -35,7 +36,7 @@ where
 
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
-import Control.Monad.Reader (MonadReader, ReaderT (..))
+import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState, StateT (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Bifunctor (Bifunctor (..))
@@ -50,16 +51,16 @@ import Control.Applicative (liftA2)
 import Data.Foldable (asum)
 #endif
 import Data.Functor ((<&>))
-import Data.Functor.Monoidal qualified as Functor
 import Data.Kind
 import Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
 import Data.Profunctor.Traversing (Traversing (..))
 import Data.Text qualified as Text
 import Data.These (These (..))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
-import Data.Void (Void, absurd)
+import Data.Void (Void)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
+import Data.Machine.Mealy.Coalgebra (MealyM (..))
 
 --------------------------------------------------------------------------------
 
@@ -90,52 +91,27 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
-    via StateT s (ReaderT i (ListT m))
+    via MealyM (ListT m) s i
 
-instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (i, i') (o, o')
-  combine (Bot b1, Bot b2) = Bot $ \(s, t) (i, i') ->
-    liftA2 (curry (\((o, s'), (o', t')) -> ((o, o'), (s', t')))) (b1 s i) (b2 t i')
+deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
 
-instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (Either i i') (Either o o')
-  combine (Bot m1, Bot m2) = Bot $ \(s, t) -> \case
-    Left i -> (bimap Left (,t) <$> m1 s i)
-    Right i' -> bimap Right (s,) <$> m2 t i'
+deriving via (MealyM (ListT m)) instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m)
 
-instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (These i i') (These o o')
-  combine (Bot b1, Bot b2) = Bot $ \(s, t) -> \case
-    This i -> bimap This (,t) <$> b1 s i
-    That i' -> bimap That (s,) <$> b2 t i'
-    These i i' -> do
-      Functor.combine (b1 s i, b2 t i') <&> \case
-        This (o, s) -> (This o, (s, t))
-        That (o', t) -> (That o', (s, t))
-        These (o, s) (o', t) -> (These o o', (s, t))
+deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m)
 
-instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m) where
-  introduce :: () -> Bot m () () ()
-  introduce () = Bot $ \() () -> pure ((), ())
+deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m)
 
-instance Trifunctor.Unital (->) () Void Void () (Bot m) where
-  introduce :: () -> Bot m () Void Void
-  introduce () = Bot $ \() -> absurd
+deriving via (MealyM (ListT m)) instance Trifunctor.Unital (->) () Void Void () (Bot m)
 
-instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
+deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
 
-instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
+deriving via (MealyM (ListT m)) instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
 
-instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
+deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
 
-instance (Functor f) => Profunctor (Bot f s) where
-  dimap :: (Functor f) => (a -> b) -> (c -> d) -> Bot f s b c -> Bot f s a d
-  dimap f g (Bot bot) = do
-    Bot $ \s i -> fmap (first' g) $ bot s (f i)
+deriving via (MealyM (ListT f) s) instance (Functor f) => Profunctor (Bot f s)
 
-instance (Functor f) => Strong (Bot f s) where
-  first' :: (Functor f) => Bot f s a b -> Bot f s (a, c) (b, c)
-  first' (Bot bot) = Bot $ \s (a, c) -> fmap (first' (,c)) $ bot s a
+deriving via (MealyM (ListT f) s) instance (Functor f) => Strong (Bot f s)
 
 -- | 'Bot' is an invariant functor on @s@ but our types don't quite
 -- fit the @Invariant@ typeclass.
