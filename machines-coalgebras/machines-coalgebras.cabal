@@ -45,6 +45,7 @@ common common-libraries
   build-depends:
     , base           >=2 && <5
     , data-fix
+    , machines
     , monoidal-functors
     , profunctors
     , these

@@ -23,9 +23,6 @@ module Data.Chat.Bot
     readState,
     saveState,
 
-    -- * Behavior
-    MealyM' (..),
-
     -- ** Operations
     batch,
   )
@@ -50,8 +47,8 @@ import Data.Foldable (asum)
 import Control.Category (Category (..))
 import Data.Functor ((<&>))
 import Data.Kind
-import Data.Machine.Mealy (MealyM' (..))
-import Data.Machine.Mealy.Coalgebra (MealyM (..), fixMealyM)
+import Data.Machine.Mealy (MealyT (..))
+import Data.Machine.Mealy.Coalgebra (MealyTC (..), fixMealyTC)
 import Data.Profunctor (Profunctor (..), Strong (..))
 import Data.Text qualified as Text
 import Data.These (These (..))
@@ -90,29 +87,29 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
-    via MealyM (ListT m) s i
+    via MealyTC (ListT m) s i
 
-deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m)
+deriving via (MealyTC (ListT m)) instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m)
 
-deriving via (MealyM (ListT m)) instance Trifunctor.Unital (->) () Void Void () (Bot m)
+deriving via (MealyTC (ListT m)) instance Trifunctor.Unital (->) () Void Void () (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
 
-deriving via (MealyM (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
 
-deriving via (MealyM (ListT f) s) instance (Functor f) => Profunctor (Bot f s)
+deriving via (MealyTC (ListT f) s) instance (Functor f) => Profunctor (Bot f s)
 
-deriving via (MealyM (ListT f) s) instance (Functor f) => Strong (Bot f s)
+deriving via (MealyTC (ListT f) s) instance (Functor f) => Strong (Bot f s)
 
-deriving via (MealyM (ListT m) s) instance (Monad m) => Category (Bot m s)
+deriving via (MealyTC (ListT m) s) instance (Monad m) => Category (Bot m s)
 
 -- | 'Bot' is an invariant functor on @s@ but our types don't quite
 -- fit the @Invariant@ typeclass.
@@ -149,19 +146,19 @@ liftEffect m = Bot $ \s _ -> ListT $ do
 -- | Generate the fixed point of @Bot m s i o@ by recursively construction an @s
 -- -> MealyM' (ListT m) i o@ action and tupling it with the output @o@ from its
 -- parent action.
-fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> MealyM' (ListT m) i o
-fixBot = fixMealyM . MealyM . runBot
+fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> MealyT (ListT m) i o
+fixBot = fixMealyTC . MealyTC . runBot
 
 -- TODO: A bi-parser typeclass
 type Serializable a = (Read a, Show a)
 
-fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (MealyM' (ListT m) i o)
+fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (MealyT (ListT m) i o)
 fixBotPersistent cachePath (Bot bot) initialState = do
   saveState cachePath initialState
   pure go
   where
-    go :: MealyM' (ListT m) i o
-    go = MealyM' $ \i ->
+    go :: MealyT (ListT m) i o
+    go = MealyT $ \i ->
       liftIO (readState cachePath) >>= \case
         Nothing -> error "ERROR: Failed to read Bot State from disk."
         Just oldState -> do
@@ -183,5 +180,5 @@ saveState cachePath state' = do
 
 -- | Batch process a list of inputs @i@ with a single 'Behavior',
 -- interleaving the effects, and collecting the resulting outputs @o@.
-batch :: (Monad m) => MealyM' (ListT m) i o -> MealyM' (ListT m) [i] o
-batch (MealyM' b) = MealyM' $ fmap (fmap batch) . asum . fmap b
+batch :: (Monad m) => MealyT (ListT m) i o -> MealyT (ListT m) [i] o
+batch (MealyT b) = MealyT $ fmap (fmap batch) . asum . fmap b

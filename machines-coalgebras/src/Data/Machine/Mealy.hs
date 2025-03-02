@@ -1,7 +1,17 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
 
-module Data.Machine.Mealy where
+-- | The fixed point of a 'Mealy' Machine. By taking the fixpoint we
+-- are able to hide the state parameter @s@.
+-- newtype MealyT m i o = MealyT {runMealyT :: i -> m (o, MealyT m i o)}
+module Data.Machine.Mealy
+  ( MealyT (..),
+    Mealy,
+    hoistMealyT,
+    liftMealyT,
+  )
+where
 
 --------------------------------------------------------------------------------
 
@@ -13,7 +23,8 @@ import Control.Monad.Trans (MonadTrans (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bifunctor.Monoidal qualified as Bifunctor
 import Data.Functor.Identity (Identity)
-import Data.Profunctor (Choice, Profunctor (..), Strong (..))
+import Data.Machine.MealyT (MealyT (..))
+import Data.Profunctor (Choice, Strong (..))
 import Data.Profunctor.Choice (Choice (..))
 import Prelude hiding (id, (.))
 
@@ -21,53 +32,33 @@ import Prelude hiding (id, (.))
 
 -- | The fixed point of a 'Mealy' Machine. By taking the fixpoint we
 -- are able to hide the state parameter @s@.
-newtype MealyM' m i o = MealyM' {runMealyM' :: i -> m (o, MealyM' m i o)}
-  deriving stock (Functor)
+type Mealy = MealyT Identity
 
--- | The fixed point of a 'Mealy' Machine. By taking the fixpoint we
--- are able to hide the state parameter @s@.
-type Mealy' = MealyM' Identity
-
-instance (Applicative m) => Bifunctor.Semigroupal (->) (,) (,) (,) (MealyM' m) where
-  combine :: (MealyM' m i o, MealyM' m i' o') -> MealyM' m (i, i') (o, o')
-  combine (MealyM' m1, MealyM' m2) = MealyM' $ \(i, i') -> do
+instance (Applicative m) => Bifunctor.Semigroupal (->) (,) (,) (,) (MealyT m) where
+  combine :: (MealyT m i o, MealyT m i' o') -> MealyT m (i, i') (o, o')
+  combine (MealyT m1, MealyT m2) = MealyT $ \(i, i') -> do
     liftA2 (uncurry (\o m1' (o', m2') -> ((o, o'), Bifunctor.combine (m1', m2')))) (m1 i) (m2 i')
 
-instance (Applicative m) => Bifunctor.Unital (->) () () () (MealyM' m) where
-  introduce :: () -> MealyM' m () ()
-  introduce () = MealyM' $ \() -> pure ((), Bifunctor.introduce ())
+instance (Applicative m) => Bifunctor.Unital (->) () () () (MealyT m) where
+  introduce :: () -> MealyT m () ()
+  introduce () = MealyT $ \() -> pure ((), Bifunctor.introduce ())
 
-instance (Applicative m) => Bifunctor.Monoidal (->) (,) () (,) () (,) () (MealyM' m)
+instance (Applicative m) => Bifunctor.Monoidal (->) (,) () (,) () (,) () (MealyT m)
 
-instance (Functor m) => Profunctor (MealyM' m) where
-  dimap :: (i' -> i) -> (o -> o') -> MealyM' m i o -> MealyM' m i' o'
-  dimap f g (MealyM' mealy) = MealyM' $ dimap f (fmap (bimap g (dimap f g))) mealy
+instance (Functor m) => Strong (MealyT m) where
+  first' :: MealyT m i o -> MealyT m (i, x) (o, x)
+  first' (MealyT mealy) = MealyT $ \(i, x) -> bimap (,x) first' <$> mealy i
 
-instance (Functor m) => Strong (MealyM' m) where
-  first' :: MealyM' m i o -> MealyM' m (i, x) (o, x)
-  first' (MealyM' mealy) = MealyM' $ \(i, x) -> bimap (,x) first' <$> mealy i
-
-instance (Applicative m) => Choice (MealyM' m) where
-  left' :: MealyM' m i o -> MealyM' m (Either i x) (Either o x)
-  left' (MealyM' mealy) = MealyM' $ either (fmap (bimap Left left') . mealy) (pure . (,left' (MealyM' mealy)) . Right)
-
-instance (Monad m) => Category (MealyM' m) where
-  id :: (Monad m) => MealyM' m a a
-  id = MealyM' $ \a ->
-    pure (a, id)
-
-  (.) :: (Monad m) => MealyM' m b c -> MealyM' m a b -> MealyM' m a c
-  MealyM' m2 . MealyM' m1 = MealyM' $ \a -> do
-    (b, m1') <- m1 a
-    (c, m2') <- m2 b
-    pure (c, m2' . m1')
+instance (Applicative m) => Choice (MealyT m) where
+  left' :: MealyT m i o -> MealyT m (Either i x) (Either o x)
+  left' (MealyT mealy) = MealyT $ either (fmap (bimap Left left') . mealy) (pure . (,left' (MealyT mealy)) . Right)
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
--- @MealyM' m s i o@ to @MealyM' n s i o@
-hoistMealyM' :: (Functor n, Functor m) => (forall x. m x -> n x) -> MealyM' m i o -> MealyM' n i o
-hoistMealyM' f (MealyM' mealy) = MealyM' $ \i -> f (fmap (hoistMealyM' f) <$> mealy i)
+-- @MealyT m s i o@ to @MealyT n s i o@
+hoistMealyT :: (Functor n, Functor m) => (forall x. m x -> n x) -> MealyT m i o -> MealyT n i o
+hoistMealyT f (MealyT mealy) = MealyT $ \i -> f (fmap (hoistMealyT f) <$> mealy i)
 
 -- | Lift a computation on the monad @m@ to the constructed monad @t
--- m@ in the context of a 'MealyM''.
-liftMealyM' :: (Functor (t m), Monad m, MonadTrans t) => MealyM' m i o -> MealyM' (t m) i o
-liftMealyM' = hoistMealyM' lift
+-- m@ in the context of a 'MealyT'.
+liftMealyT :: (Functor (t m), Monad m, MonadTrans t) => MealyT m i o -> MealyT (t m) i o
+liftMealyT = hoistMealyT lift

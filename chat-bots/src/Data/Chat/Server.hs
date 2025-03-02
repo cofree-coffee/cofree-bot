@@ -18,7 +18,7 @@ where
 import Control.Monad.ListT (ListT, fromListT)
 import Data.Bifunctor (bimap)
 import Data.Fix (Fix (..))
-import Data.Machine.Mealy (MealyM' (..))
+import Data.Machine.Mealy (MealyT (..))
 import Data.Machine.Moore (MooreM' (..))
 import Data.Machine.Moore.Coalgebra (MooreM (..), fixMooreM)
 import Data.Profunctor (Profunctor (..))
@@ -60,8 +60,8 @@ fixEnv = fixMooreM . MooreM . runEnv
 
 -- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
 -- monadic action @m@.
-annihilate :: (Monad m) => MooreM' m [o] i -> MealyM' (ListT m) i o -> Fix m
-annihilate (MooreM' server) b@(MealyM' mealy) = Fix $ do
+annihilate :: (Monad m) => MooreM' m [o] i -> MealyT (ListT m) i o -> Fix m
+annihilate (MooreM' server) b@(MealyT mealy) = Fix $ do
   (i, nextServer) <- server
   xs <- fromListT $ mealy i
   let o = fmap fst $ xs
