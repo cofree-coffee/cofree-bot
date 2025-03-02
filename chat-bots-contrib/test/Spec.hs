@@ -5,11 +5,13 @@ module Main where
 
 --------------------------------------------------------------------------------
 
-import Data.Chat.Bot (Behavior, Bot (..), fixBot)
+import Control.Monad.ListT (ListT)
+import Data.Chat.Bot (Bot (..), fixBot)
 import Data.Chat.Bot.Calculator
 import Data.Chat.Bot.Context (sessionSerializer, sessionize)
 import Data.Chat.Bot.Hello
 import Data.Chat.Bot.Serialization qualified as S
+import Data.Machine.Mealy (MealyT)
 import Data.Text (Text, pack)
 import Scripts (Script, mkScript)
 import Test.Hspec (Spec, describe, hspec, it, shouldNotBe)
@@ -26,7 +28,7 @@ main = hspec $ do
 
 scriptedTestsSpec :: Spec
 scriptedTestsSpec = describe "Scripted tests" $ do
-  let myBehavior :: forall m. (Monad m) => Behavior m Text Text
+  let myBehavior :: forall m. (Monad m) => MealyT (ListT m) Text Text
       myBehavior = flip fixBot True $ Bot $ \s _ -> return (pack $ show s, not s)
 
   it "can deal with bots that respond correctly" $ do

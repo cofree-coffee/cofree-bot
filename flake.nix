@@ -33,11 +33,12 @@
             chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
             cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
             list-t = hfinal.callCabal2nix "list-t" ./list-t/. { };
+            machines-coalgebras = hfinal.callCabal2nix "list-t" ./machines-coalgebras/. { };
             monoidal-functors = hfinal.callCabal2nix "monoidal-functors" (pkgs.fetchFromGitHub {
               owner = "solomon-b";
               repo = "monoidal-functors";
-              rev = "eeb61da953592b7c01ab319b14f961e8f04c82c0";
-              sha256 = "sha256-XnSffGuRTzr5LCrxu8x7AU3hmNk314Ip2ky2Z9xRJI0=";
+              rev = "e951a2be496d57d7f4e5b582ad175e8e97a9ab7b";
+              sha256 = "sha256-HfIMuU9yBp0JtN/ONOFku1wItbGLJl09fhaFzyiNVMg=";
             }) { };
           };
         };

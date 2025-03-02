@@ -10,7 +10,7 @@ where
 
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (MonadIO (..))
-import Data.Chat.Server (Server (..))
+import Data.Machine.Moore (MooreT (..))
 import Data.Text (Text)
 import Data.Text qualified as Text
 import System.IO (hFlush, stdout)
@@ -18,8 +18,8 @@ import System.IO (hFlush, stdout)
 --------------------------------------------------------------------------------
 
 -- | A repl-style 'Server' for interacting with a 'Bot'.
-repl :: Server IO Text Text
-repl = Server $ do
+repl :: MooreT IO [Text] Text
+repl = MooreT $ do
   -- Read the user's input
   liftIO $ do
     putStr "<<< "
@@ -27,10 +27,10 @@ repl = Server $ do
   (Text.pack -> input) <- liftIO getLine
 
   pure $
-    (input,) $ \outputs -> Server $ do
+    (input,) $ \outputs -> MooreT $ do
       forM_ outputs $ \output -> do
         -- Print the bot's responses
         liftIO $ putStrLn $ Text.unpack $ ">>> " <> output
 
       -- Do it again
-      runServer repl
+      runMooreT repl

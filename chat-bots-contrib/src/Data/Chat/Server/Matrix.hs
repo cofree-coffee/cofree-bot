@@ -16,8 +16,8 @@ import Control.Monad.Except
 import Control.Monad.IO.Class (MonadIO (..))
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization
-import Data.Chat.Server
 import Data.Chat.Utils (readFileMaybe)
+import Data.Machine.Moore (MooreT (..))
 import Data.Map.Strict qualified as Map
 import Data.Profunctor
 import Data.Text (Text)
@@ -34,14 +34,14 @@ type MatrixBot m s = Bot m s (RoomID, Event) (RoomID, Event)
 liftMatrixIO :: (MonadIO m, MonadError MatrixError m) => MatrixIO x -> m x
 liftMatrixIO m = liftEither =<< liftIO m
 
--- | A Matrix 'Server' for connecting a 'Bot' to the Matrix protocol.
+-- | A Matrix Server for connecting a 'Bot' to the Matrix protocol.
 matrix ::
   forall m.
   (MonadError MatrixError m, MonadIO m) =>
   ClientSession ->
   FilePath ->
-  Server m (RoomID, Event) [(RoomID, Event)]
-matrix session cache = Server $ do
+  MooreT m [(RoomID, Event)] [(RoomID, Event)]
+matrix session cache = MooreT $ do
   -- Setup cache
   liftIO $ createDirectoryIfMissing True cache
   since <- liftIO $ readFileMaybe $ cache <> "/since_file"
@@ -51,10 +51,10 @@ matrix session cache = Server $ do
   filterId <- liftMatrixIO $ createFilter session userId messageFilter
 
   -- Start looping
-  runServer $ go filterId since
+  runMooreT $ go filterId since
   where
-    go :: FilterID -> Maybe Text -> Server m (RoomID, Event) [(RoomID, Event)]
-    go filterId since = Server $ do
+    go :: FilterID -> Maybe Text -> MooreT m [(RoomID, Event)] [(RoomID, Event)]
+    go filterId since = MooreT $ do
       -- Get conversation events
       syncResult <-
         liftMatrixIO $
@@ -77,7 +77,7 @@ matrix session cache = Server $ do
               roomEvents
 
       pure $
-        (events,) $ \outputs -> Server $ do
+        (events,) $ \outputs -> MooreT $ do
           -- Send the bot's responses
           gen <- newStdGen
           let txnIds = TxnID . Text.pack . show <$> randoms @Int gen
@@ -87,7 +87,7 @@ matrix session cache = Server $ do
           liftIO $ writeFile (cache <> "/since_file") (Text.unpack newSince)
 
           -- Do it again
-          runServer $ go filterId (Just newSince)
+          runMooreT $ go filterId (Just newSince)
 
 embedTextBot :: (Applicative m) => Bot m s Text Text -> Bot m s (RoomID, Event) (RoomID, Event)
 embedTextBot = second' . flip applySerializer eventSerializer

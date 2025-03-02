@@ -16,16 +16,17 @@ import Control.Monad.Except
     liftEither,
     runExceptT,
   )
+import Control.Monad.ListT (ListT, hoistListT)
 import Control.Monad.Trans (MonadTrans (..))
-import Data.Chat.Bot (Behavior, hoistBehavior)
 import Data.Chat.Server
   ( Env (..),
-    Server (..),
     annihilate,
     fixEnv,
   )
 import Data.Fix (Fix (..))
 import Data.List.NonEmpty (NonEmpty (..), nonEmpty)
+import Data.Machine.Mealy (MealyT, hoistMealyT)
+import Data.Machine.Moore (MooreT)
 import Data.Text (Text)
 import Data.Void
 import Scripts
@@ -48,7 +49,7 @@ initReplayServerState (Script interactions) = case interactions of
 replayServer ::
   (Eq o, MonadError (Completion i o) m) =>
   ReplayServerState i o ->
-  Server m o i
+  MooreT m [o] i
 replayServer = fixEnv $ Env $ (liftEither .) $ \case
   Left completion -> Left completion
   Right (Interaction prompt expectedResponses :| rest) -> Right $ (prompt,) $ \actualResponses ->
@@ -63,10 +64,10 @@ replayServer = fixEnv $ Env $ (liftEither .) $ \case
               remainder = rest
             }
 
-conformsToScript' :: Behavior IO Text Text -> Script -> IO (Completion Text Text)
+conformsToScript' :: MealyT (ListT IO) Text Text -> Script -> IO (Completion Text Text)
 conformsToScript' behavior script = do
   let server = replayServer (initReplayServerState script)
-  fmap onlyLeft $ runExceptT $ bindFix $ annihilate server (hoistBehavior lift behavior)
+  fmap onlyLeft $ runExceptT $ bindFix $ annihilate server (hoistMealyT (hoistListT lift) behavior)
   where
     -- TODO: move these somewhere else
     bindFix :: (Monad m) => Fix m -> m Void
@@ -77,7 +78,7 @@ conformsToScript' behavior script = do
       Left x -> x
       Right v -> absurd v
 
-conformsToScript :: Behavior IO Text Text -> Script -> IO ()
+conformsToScript :: MealyT (ListT IO) Text Text -> Script -> IO ()
 conformsToScript behavior script = do
   result <- behavior `conformsToScript'` script
   result `shouldBe` Passed

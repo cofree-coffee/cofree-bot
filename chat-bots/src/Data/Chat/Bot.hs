@@ -2,6 +2,8 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 -- | The core Chat Bot encoding.
 module Data.Chat.Bot
@@ -21,13 +23,8 @@ module Data.Chat.Bot
     readState,
     saveState,
 
-    -- * Behavior
-    Behavior (..),
-
     -- ** Operations
     batch,
-    hoistBehavior,
-    liftBehavior,
   )
 where
 
@@ -35,11 +32,9 @@ where
 
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
-import Control.Monad.Reader (MonadReader, ReaderT (..))
-import Control.Monad.State (MonadState, StateT (..))
-import Control.Monad.Trans (MonadTrans (..))
+import Control.Monad.Reader (MonadReader)
+import Control.Monad.State (MonadState)
 import Data.Bifunctor (Bifunctor (..))
-import Data.Bifunctor.Monoidal qualified as Bifunctor
 import Data.Chat.Utils (readFileMaybe)
 #if MIN_VERSION_base(4,18,0)
 import Control.Applicative (asum)
@@ -49,17 +44,19 @@ import Control.Applicative (asum, liftA2)
 import Control.Applicative (liftA2)
 import Data.Foldable (asum)
 #endif
+import Control.Category (Category (..))
 import Data.Functor ((<&>))
-import Data.Functor.Monoidal qualified as Functor
 import Data.Kind
-import Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
-import Data.Profunctor.Traversing (Traversing (..))
+import Data.Machine.Mealy (MealyT (..))
+import Data.Machine.Mealy.Coalgebra (MealyTC (..), fixMealyTC)
+import Data.Profunctor (Profunctor (..), Strong (..))
 import Data.Text qualified as Text
 import Data.These (These (..))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
-import Data.Void (Void, absurd)
+import Data.Void (Void)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
+import Prelude hiding (id, (.))
 
 --------------------------------------------------------------------------------
 
@@ -90,52 +87,29 @@ type KBot = (Type -> Type) -> Type -> Type -> Type -> Type
 newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
-    via StateT s (ReaderT i (ListT m))
+    via MealyTC (ListT m) s i
 
-instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (i, i') (o, o')
-  combine (Bot b1, Bot b2) = Bot $ \(s, t) (i, i') ->
-    liftA2 (curry (\((o, s'), (o', t')) -> ((o, o'), (s', t')))) (b1 s i) (b2 t i')
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
 
-instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (Either i i') (Either o o')
-  combine (Bot m1, Bot m2) = Bot $ \(s, t) -> \case
-    Left i -> (bimap Left (,t) <$> m1 s i)
-    Right i' -> bimap Right (s,) <$> m2 t i'
+deriving via (MealyTC (ListT m)) instance (Functor m) => Trifunctor.Semigroupal (->) (,) Either Either (,) (Bot m)
 
-instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m) where
-  combine :: (Bot m s i o, Bot m t i' o') -> Bot m (s, t) (These i i') (These o o')
-  combine (Bot b1, Bot b2) = Bot $ \(s, t) -> \case
-    This i -> bimap This (,t) <$> b1 s i
-    That i' -> bimap That (s,) <$> b2 t i'
-    These i i' -> do
-      Functor.combine (b1 s i, b2 t i') <&> \case
-        This (o, s) -> (This o, (s, t))
-        That (o', t) -> (That o', (s, t))
-        These (o, s) (o', t) -> (These o o', (s, t))
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) These These (,) (Bot m)
 
-instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m) where
-  introduce :: () -> Bot m () () ()
-  introduce () = Bot $ \() () -> pure ((), ())
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Unital (->) () () () () (Bot m)
 
-instance Trifunctor.Unital (->) () Void Void () (Bot m) where
-  introduce :: () -> Bot m () Void Void
-  introduce () = Bot $ \() -> absurd
+deriving via (MealyTC (ListT m)) instance Trifunctor.Unital (->) () Void Void () (Bot m)
 
-instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (Bot m)
 
-instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void Either Void (,) () (Bot m)
 
-instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
+deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Monoidal (->) (,) () These Void These Void (,) () (Bot m)
 
-instance (Functor f) => Profunctor (Bot f s) where
-  dimap :: (Functor f) => (a -> b) -> (c -> d) -> Bot f s b c -> Bot f s a d
-  dimap f g (Bot bot) = do
-    Bot $ \s i -> fmap (first' g) $ bot s (f i)
+deriving via (MealyTC (ListT f) s) instance (Functor f) => Profunctor (Bot f s)
 
-instance (Functor f) => Strong (Bot f s) where
-  first' :: (Functor f) => Bot f s a b -> Bot f s (a, c) (b, c)
-  first' (Bot bot) = Bot $ \s (a, c) -> fmap (first' (,c)) $ bot s a
+deriving via (MealyTC (ListT f) s) instance (Functor f) => Strong (Bot f s)
+
+deriving via (MealyTC (ListT m) s) instance (Monad m) => Category (Bot m s)
 
 -- | 'Bot' is an invariant functor on @s@ but our types don't quite
 -- fit the @Invariant@ typeclass.
@@ -169,26 +143,22 @@ liftEffect m = Bot $ \s _ -> ListT $ do
   o <- m
   pure $ ConsF (o, s) (ListT $ pure NilF)
 
--- | Generate the fixed point of @Bot m s i o@ by recursively
--- construction an @s -> Behavior m i o@ action and tupling it with
--- the output @o@ from its parent action.
-fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> Behavior m i o
-fixBot (Bot b) = go
-  where
-    go :: s -> Behavior m i o
-    go s = Behavior $ \i -> second go <$> b s i
+-- | Generate the fixed point of @Bot m s i o@ by recursively construction an @s
+-- -> MealyM' (ListT m) i o@ action and tupling it with the output @o@ from its
+-- parent action.
+fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> MealyT (ListT m) i o
+fixBot = fixMealyTC . MealyTC . runBot
 
 -- TODO: A bi-parser typeclass
 type Serializable a = (Read a, Show a)
 
--- | A variation of 'fixBot' where the bot's state is persisted to disk.
-fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (Behavior m i o)
+fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (MealyT (ListT m) i o)
 fixBotPersistent cachePath (Bot bot) initialState = do
   saveState cachePath initialState
   pure go
   where
-    go :: Behavior m i o
-    go = Behavior $ \i ->
+    go :: MealyT (ListT m) i o
+    go = MealyT $ \i ->
       liftIO (readState cachePath) >>= \case
         Nothing -> error "ERROR: Failed to read Bot State from disk."
         Just oldState -> do
@@ -208,66 +178,7 @@ saveState cachePath state' = do
 
 --------------------------------------------------------------------------------
 
--- | The fixed point of a 'Bot'.
---
--- Notice that the @s@ parameter has disapeared. This allows us to
--- hide the state threading when interpreting a 'Bot' with some 'Env'.
---
--- See 'annihilate' for how this interaction occurs in practice.
-newtype Behavior m i o = Behavior {runBehavior :: i -> ListT m (o, (Behavior m i o))}
-
-instance (Functor m) => Profunctor (Behavior m) where
-  dimap :: (Functor m) => (a -> b) -> (c -> d) -> Behavior m b c -> Behavior m a d
-  dimap f g (Behavior b) = Behavior $ dimap f (fmap (bimap g (dimap f g))) b
-
-instance (Monad m) => Bifunctor.Semigroupal (->) (,) (,) (,) (Behavior m) where
-  combine :: (Behavior m i o, Behavior m i' o') -> Behavior m (i, i') (o, o')
-  combine (Behavior m1, Behavior m2) = Behavior $ \(i, i') -> do
-    liftA2 (uncurry (\o m1' (o', m2') -> ((o, o'), Bifunctor.combine (m1', m2')))) (m1 i) (m2 i')
-
-instance (Monad m) => Bifunctor.Unital (->) () () () (Behavior m) where
-  introduce :: () -> Behavior m () ()
-  introduce () = Behavior $ \() -> pure ((), Bifunctor.introduce ())
-
-instance (Monad m) => Bifunctor.Monoidal (->) (,) () (,) () (,) () (Behavior m)
-
-instance (Monad m) => Choice (Behavior m) where
-  left' :: (Monad m) => Behavior m a b -> Behavior m (Either a c) (Either b c)
-  left' (Behavior b) =
-    Behavior $
-      either
-        (fmap (bimap Left left') . b)
-        (pure . (,left' (Behavior b)) . Right)
-
-instance (Functor m) => Strong (Behavior m) where
-  first' :: (Functor m) => Behavior m a b -> Behavior m (a, c) (b, c)
-  first' (Behavior b) = Behavior $ \(a, c) -> fmap (bimap (,c) first') (b a)
-
-instance (Monad m) => Traversing (Behavior m) where
-  -- TODO: write wander instead for efficiency
-  traverse' :: (Monad m, Traversable f) => Behavior m a b -> Behavior m (f a) (f b)
-  traverse' b = Behavior $ \is ->
-    fmap (uncurry (,) . fmap traverse') $
-      flip runStateT b $
-        traverse
-          ( \i -> StateT $ \(Behavior b') ->
-              fmap (\(responses, nextState) -> (responses, nextState)) $ b' i
-          )
-          is
-
---------------------------------------------------------------------------------
-
 -- | Batch process a list of inputs @i@ with a single 'Behavior',
 -- interleaving the effects, and collecting the resulting outputs @o@.
-batch :: (Monad m) => Behavior m i o -> Behavior m [i] o
-batch (Behavior b) = Behavior $ fmap (fmap batch) . asum . fmap b
-
--- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
--- @Behavior m s i o@ to @Behavior n s i o@
-hoistBehavior :: (Functor n, Functor m) => (forall x. m x -> n x) -> Behavior m i o -> Behavior n i o
-hoistBehavior f (Behavior b) = Behavior $ \i -> hoistListT f $ fmap (fmap (hoistBehavior f)) $ b i
-
--- | Lift a computation on the monad @m@ to the constructed monad @t
--- m@ in the context of a 'Behavior'.
-liftBehavior :: (Functor (t m), Monad m, MonadTrans t) => Behavior m i o -> Behavior (t m) i o
-liftBehavior = hoistBehavior lift
+batch :: (Monad m) => MealyT (ListT m) i o -> MealyT (ListT m) [i] o
+batch (MealyT b) = MealyT $ fmap (fmap batch) . asum . fmap b
