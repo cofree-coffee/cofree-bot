@@ -18,8 +18,8 @@ import Data.Machine.Moore as M
 -- with a By^A Moore Machine. Its the universal thing that can be put
 -- together with a By^A Moore Machine. They're not just two different
 -- definitions, they are dual in certain sense." -- David Spivak
-annihilate :: (Monad m) => MooreM' m o i -> MealyT m i o -> Fix m
-annihilate (MooreM' moore) (MealyT mealy) = Fix $ do
+annihilate :: (Monad m) => MooreT m o i -> MealyT m i o -> Fix m
+annihilate (MooreT moore) (MealyT mealy) = Fix $ do
   (i, nextMoore) <- moore
   (o, mealy') <- mealy i
   let moore' = nextMoore o

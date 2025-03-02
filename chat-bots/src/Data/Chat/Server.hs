@@ -17,10 +17,11 @@ where
 
 import Control.Monad.ListT (ListT, fromListT)
 import Data.Bifunctor (bimap)
+import Data.Coerce (coerce)
 import Data.Fix (Fix (..))
 import Data.Machine.Mealy (MealyT (..))
-import Data.Machine.Moore (MooreM' (..))
-import Data.Machine.Moore.Coalgebra (MooreM (..), fixMooreM)
+import Data.Machine.Moore (MooreT (..))
+import Data.Machine.Moore.Coalgebra (MooreTC (..), fixMooreTC, hoistMooreTC)
 import Data.Profunctor (Profunctor (..))
 
 --------------------------------------------------------------------------------
@@ -48,20 +49,20 @@ instance (Functor m) => Profunctor (Env m s) where
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @Env m s o i@ to @Env n s o i@
 hoistEnv :: (Functor n) => (forall x. m x -> n x) -> Env m s o i -> Env n s o i
-hoistEnv f (Env env) = Env $ \s -> f $ env s
+hoistEnv f = coerce . hoistMooreTC f . MooreTC . runEnv
 
 -- | Generate the fixed point of @Env m s o i@ by recursively
 -- construction an @s -> Server m o i@ action and tupling it with
 -- the output @i@ from its parent action.
-fixEnv :: forall m s o i. (Functor m) => Env m s o i -> s -> MooreM' m [o] i
-fixEnv = fixMooreM . MooreM . runEnv
+fixEnv :: forall m s o i. (Functor m) => Env m s o i -> s -> MooreT m [o] i
+fixEnv = fixMooreTC . MooreTC . runEnv
 
 --------------------------------------------------------------------------------
 
--- | Collapse a @Server m o i@ with a @Bahavior m i o@ to create a
+-- | Collapse a @MooreT m o i@ with a @Mealy m i o@ to create a
 -- monadic action @m@.
-annihilate :: (Monad m) => MooreM' m [o] i -> MealyT (ListT m) i o -> Fix m
-annihilate (MooreM' server) b@(MealyT mealy) = Fix $ do
+annihilate :: (Monad m) => MooreT m [o] i -> MealyT (ListT m) i o -> Fix m
+annihilate (MooreT server) b@(MealyT mealy) = Fix $ do
   (i, nextServer) <- server
   xs <- fromListT $ mealy i
   let o = fmap fst $ xs

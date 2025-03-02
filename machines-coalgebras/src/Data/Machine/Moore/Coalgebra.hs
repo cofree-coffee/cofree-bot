@@ -2,18 +2,15 @@
 
 -- | Moore Machines and related machinery.
 module Data.Machine.Moore.Coalgebra
-  ( MooreM (..),
+  ( MooreTC (..),
     Moore,
-    MooreM' (..),
-    Moore',
-    fixMooreM,
+    hoistMooreTC,
+    fixMooreTC,
     fixMoore,
-    scanMooreM,
+    scanMooreTC,
     scanMoore,
-    processMooreM,
-    processMoore,
-    processMooreM',
-    processMoore',
+    processMooreTC,
+    processMooreC,
   )
 where
 
@@ -48,42 +45,42 @@ import Data.Void (Void)
 -- In this particular encoding we receive the initial state and
 -- produce a tuple of the observation at the initial state and the
 -- next state transition function.
-newtype MooreM m s i o = MooreM {runMooreM :: s -> m (o, i -> s)}
+newtype MooreTC m s i o = MooreTC {runMooreTC :: s -> m (o, i -> s)}
   deriving (Functor)
 
-instance (Applicative m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (MooreM m) where
-  combine :: (MooreM m s i o, MooreM m t i' o') -> MooreM m (s, t) (i, i') (o, o')
-  combine (MooreM m1, MooreM m2) =
-    MooreM $ \(s, t) ->
+instance (Applicative m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (MooreTC m) where
+  combine :: (MooreTC m s i o, MooreTC m t i' o') -> MooreTC m (s, t) (i, i') (o, o')
+  combine (MooreTC m1, MooreTC m2) =
+    MooreTC $ \(s, t) ->
       liftA2 (curry $ fmap biapply . Bifunctor.combine @(->) @(,) @(,)) (m1 s) (m2 t)
 
-instance (Applicative m) => Trifunctor.Semigroupal (->) (,) Either (,) (,) (MooreM m) where
-  combine :: (MooreM m s i o, MooreM m t i' o') -> MooreM m (s, t) (Either i i') (o, o')
-  combine (MooreM m1, MooreM m2) =
-    MooreM $ \(s, t) -> liftA2 (curry $ fmap (\(f, g) -> either ((,t) . f) ((s,) . g)) . Bifunctor.combine @(->) @(,) @(,)) (m1 s) (m2 t)
+instance (Applicative m) => Trifunctor.Semigroupal (->) (,) Either (,) (,) (MooreTC m) where
+  combine :: (MooreTC m s i o, MooreTC m t i' o') -> MooreTC m (s, t) (Either i i') (o, o')
+  combine (MooreTC m1, MooreTC m2) =
+    MooreTC $ \(s, t) -> liftA2 (curry $ fmap (\(f, g) -> either ((,t) . f) ((s,) . g)) . Bifunctor.combine @(->) @(,) @(,)) (m1 s) (m2 t)
 
-instance (Applicative m) => Trifunctor.Semigroupal (->) (,) These (,) (,) (MooreM m) where
-  combine :: (MooreM m s i o, MooreM m t i' o') -> MooreM m (s, t) (These i i') (o, o')
-  combine (MooreM m1, MooreM m2) =
-    MooreM $ \(s, t) -> liftA2 (curry $ fmap (\(f, g) -> these ((,t) . f) ((s,) . g) (curry (f *** g))) . Bifunctor.combine @(->) @(,) @(,)) (m1 s) (m2 t)
+instance (Applicative m) => Trifunctor.Semigroupal (->) (,) These (,) (,) (MooreTC m) where
+  combine :: (MooreTC m s i o, MooreTC m t i' o') -> MooreTC m (s, t) (These i i') (o, o')
+  combine (MooreTC m1, MooreTC m2) =
+    MooreTC $ \(s, t) -> liftA2 (curry $ fmap (\(f, g) -> these ((,t) . f) ((s,) . g) (curry (f *** g))) . Bifunctor.combine @(->) @(,) @(,)) (m1 s) (m2 t)
 
-instance (Applicative m) => Trifunctor.Unital (->) () () () () (MooreM m) where
-  introduce :: () -> MooreM m () () ()
-  introduce () = MooreM $ \() -> pure ((), const ())
+instance (Applicative m) => Trifunctor.Unital (->) () () () () (MooreTC m) where
+  introduce :: () -> MooreTC m () () ()
+  introduce () = MooreTC $ \() -> pure ((), const ())
 
-instance (Applicative m) => Trifunctor.Unital (->) () Void () () (MooreM m) where
-  introduce :: () -> MooreM m () Void ()
-  introduce () = MooreM $ \() -> pure ((), const ())
+instance (Applicative m) => Trifunctor.Unital (->) () Void () () (MooreTC m) where
+  introduce :: () -> MooreTC m () Void ()
+  introduce () = MooreTC $ \() -> pure ((), const ())
 
-instance (Applicative m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (MooreM m)
+instance (Applicative m) => Trifunctor.Monoidal (->) (,) () (,) () (,) () (,) () (MooreTC m)
 
-instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void (,) () (,) () (MooreM m)
+instance (Applicative m) => Trifunctor.Monoidal (->) (,) () Either Void (,) () (,) () (MooreTC m)
 
-instance (Applicative m) => Trifunctor.Monoidal (->) (,) () These Void (,) () (,) () (MooreM m)
+instance (Applicative m) => Trifunctor.Monoidal (->) (,) () These Void (,) () (,) () (MooreTC m)
 
-instance (Functor m) => Profunctor (MooreM m s) where
-  dimap :: (i' -> i) -> (o -> o') -> MooreM m s i o -> MooreM m s i' o'
-  dimap f g (MooreM moore) = MooreM $ fmap (fmap (bimap g (lmap f))) moore
+instance (Functor m) => Profunctor (MooreTC m s) where
+  dimap :: (i' -> i) -> (o -> o') -> MooreTC m s i o -> MooreTC m s i' o'
+  dimap f g (MooreTC moore) = MooreTC $ fmap (fmap (bimap g (lmap f))) moore
 
 -- | Moore Machine
 --
@@ -97,61 +94,68 @@ instance (Functor m) => Profunctor (MooreM m s) where
 -- In this particular encoding we receive the initial state and
 -- produce a tuple of the observation at the initial state and the
 -- next state transition function.
-type Moore = MooreM Identity
+type MooreC = MooreTC Identity
 
 --------------------------------------------------------------------------------
 
--- | Take the fixpoint of @MooreM s i o@ by recursively constructing an
--- @s -> MooreM' i o@ action and tupling it with the output observation
+-- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
+-- @MooreTC m s o i@ to @MooreTC n s o i@
+hoistMooreTC :: (Functor n) => (forall x. m x -> n x) -> MooreTC m s o i -> MooreTC n s o i
+hoistMooreTC f (MooreTC moore) = MooreTC $ \s -> f $ moore s
+
+--------------------------------------------------------------------------------
+
+-- | Take the fixpoint of @MooreTC s i o@ by recursively constructing an
+-- @s -> MooreTC' i o@ action and tupling it with the output observation
 -- @o@ from its parent action.
-fixMooreM :: forall m s o i. (Functor m) => MooreM m s o i -> s -> MooreM' m o i
-fixMooreM (MooreM moore) = go
+fixMooreTC :: forall m s o i. (Functor m) => MooreTC m s o i -> s -> MooreT m o i
+fixMooreTC (MooreTC moore) = go
   where
-    go :: s -> MooreM' m o i
-    go s = MooreM' $ fmap (fmap go) <$> moore s
+    go :: s -> MooreT m o i
+    go s = MooreT $ fmap (fmap go) <$> moore s
 
 -- | Take the fixpoint of @Moore s i o@ by recursively constructing an
 -- @s -> Moore' i o@ action and tupling it with the output observation
 -- @o@ from its parent action.
-fixMoore :: forall s o i. Moore s o i -> s -> Moore' o i
-fixMoore = fixMooreM
+fixMoore :: forall s o i. MooreC s o i -> s -> Moore o i
+fixMoore = fixMooreTC
 
 --------------------------------------------------------------------------------
 
 -- | Feed inputs into a 'Moore' Machine and extract the observation at
 -- each state/input in a 'scan' style.
-scanMooreM :: (Monad m) => s -> [i] -> MooreM m s i o -> m [(o, s)]
-scanMooreM state' inputs machine = do
-  (o, transition) <- runMooreM machine state'
+scanMooreTC :: (Monad m) => s -> [i] -> MooreTC m s i o -> m [(o, s)]
+scanMooreTC state' inputs machine = do
+  (o, transition) <- runMooreTC machine state'
   case inputs of
     [] -> pure [(o, state')]
     i : xs -> do
-      ys <- scanMooreM (transition i) xs machine
+      ys <- scanMooreTC (transition i) xs machine
       pure $ (o, state') : ys
 
 -- | Feed inputs into a 'Moore' Machine and extract the observation at
 -- each state/input in a 'scan' style.
-scanMoore :: s -> [i] -> Moore s i o -> [(o, s)]
+scanMoore :: s -> [i] -> MooreC s i o -> [(o, s)]
 scanMoore state' inputs machine =
-  let (o, transition) = runIdentity $ runMooreM machine state'
+  let (o, transition) = runIdentity $ runMooreTC machine state'
    in case inputs of
         [] -> [(o, state')]
         i : xs -> (o, state') : scanMoore (transition i) xs machine
 
 -- | Feed inputs into a 'Moore' Machine and then observe the final
 -- result.
-processMooreM :: (Monad m) => s -> [i] -> MooreM m s i o -> m o
-processMooreM initialState inputs machine = do
-  (o, transition) <- runMooreM machine initialState
+processMooreTC :: (Monad m) => s -> [i] -> MooreTC m s i o -> m o
+processMooreTC initialState inputs machine = do
+  (o, transition) <- runMooreTC machine initialState
   case inputs of
     [] -> pure o
-    i : xs -> processMooreM (transition i) xs machine
+    i : xs -> processMooreTC (transition i) xs machine
 
 -- | Feed inputs into a 'Moore' Machine and then observe the final
 -- result.
-processMoore :: s -> [i] -> Moore s i o -> o
-processMoore initialState inputs machine =
-  let (o, transition) = runIdentity $ runMooreM machine initialState
+processMooreC :: s -> [i] -> MooreC s i o -> o
+processMooreC initialState inputs machine =
+  let (o, transition) = runIdentity $ runMooreTC machine initialState
    in case inputs of
         [] -> o
-        i : xs -> processMoore (transition i) xs machine
+        i : xs -> processMooreC (transition i) xs machine
