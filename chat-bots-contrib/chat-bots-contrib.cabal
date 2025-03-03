@@ -126,3 +126,7 @@ test-suite chat-bots-contrib-test
   other-modules:
     Scripts
     TestServer
+    Data.Chat.Bot.CalculatorSpec
+    Data.Chat.Bot.ContextSpec
+    Data.Chat.Bot.HelloSpec
+    Data.Chat.Bot.UpdogSpec
