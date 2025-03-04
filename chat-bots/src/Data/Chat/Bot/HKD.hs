@@ -10,10 +10,77 @@ module Data.Chat.Bot.HKD where
 import Control.Applicative
 import Control.Arrow
 import Data.Aeson (FromJSON, ToJSON)
+import Data.Bool (bool)
 import Data.Chat.Bot
+import Data.Chat.Bot.Serialization (Serializer (..), TextSerializer)
 import Data.Kind
+import Data.Profunctor (Profunctor (..))
+import Data.Text (Text)
 import GHC.Generics
 import Prelude
+
+--------------------------------------------------------------------------------
+
+newtype Contorted s i o = Contort {unContort :: (TextSerializer o i)}
+
+class SequenceSer f where
+  sequenceSer :: f Contorted -> TextSerializer (f OutputF) (f InputF)
+  default sequenceSer ::
+    ( forall x. Generic (f x),
+      GPrint (Rep (f Contorted)) (Rep (f OutputF)),
+      GParse (Rep (f Contorted)) (Rep (f InputF))
+    ) =>
+    f Contorted ->
+    TextSerializer (f OutputF) (f InputF)
+  sequenceSer x =
+    let parse' = gparse @(Rep (f Contorted)) @(Rep (f InputF)) $ from x
+        print' = gprint @(Rep (f Contorted)) @(Rep (f OutputF)) $ from x
+     in Serializer
+          { parser = \i -> let (p, x) = parse' i in bool Nothing (Just $ to x) p,
+            printer = print' . from
+          }
+
+class GPrint crep orep where
+  gprint :: crep x -> orep x -> Text
+
+instance (GPrint c o) => GPrint (M1 _1 _2 c) (M1 _1 _2 o) where
+  gprint :: M1 _1 _2 c x -> M1 _1 _2 o x -> Text
+  gprint (M1 x) = lmap unM1 $ gprint x
+
+instance (GPrint c1 o1, GPrint c2 o2) => GPrint (c1 :*: c2) (o1 :*: o2) where
+  gprint :: (:*:) c1 c2 x -> (:*:) o1 o2 x -> Text
+  gprint (c1 :*: c2) (o1 :*: o2) =
+    let x = gprint @c1 @o1 c1 o1
+        y = gprint @c2 @o2 c2 o2
+     in case (x, y) of
+          ("", "") -> ""
+          ("", y) -> y
+          (x, "") -> x
+          (x, y) -> x <> "\n" <> y
+
+instance GPrint (K1 _1 (Contorted s i o)) (K1 _1 (OutputF s i o)) where
+  gprint :: K1 _1 (Contorted s i o) x -> K1 _1 (OutputF s i o) x -> Text
+  gprint (K1 (Contort s)) (K1 (OutputF o)) =
+    foldMap (printer s) o
+
+class GParse crep irep where
+  gparse :: crep x -> Text -> (Bool, irep x)
+
+instance (GParse c i) => GParse (M1 _1 _2 c) (M1 _1 _2 i) where
+  gparse :: M1 _1 _2 c x -> Text -> (Bool, M1 _1 _2 i x)
+  gparse (M1 x) = fmap (fmap M1) $ gparse x
+
+instance (GParse c1 i1, GParse c2 i2) => GParse (c1 :*: c2) (i1 :*: i2) where
+  gparse :: (:*:) c1 c2 x -> Text -> (Bool, (:*:) i1 i2 x)
+  gparse (c1 :*: c2) i =
+    let (p, x) = gparse @c1 @i1 c1 i
+        (q, y) = gparse @c2 @i2 c2 i
+     in (p || q, x :*: y)
+
+instance GParse (K1 _1 (Contorted s i o)) (K1 _1 (InputF s i o)) where
+  gparse :: K1 _1 (Contorted s i o) x -> Text -> (Bool, K1 _1 (InputF s i o) x)
+  gparse (K1 (Contort s)) i =
+    maybe (False, K1 $ InputF Nothing) (\i -> (True, K1 $ InputF $ Just i)) $ parser s i
 
 --------------------------------------------------------------------------------
 

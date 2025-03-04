@@ -16,6 +16,7 @@ import Data.Attoparsec.Text qualified as P
 import Data.Bifunctor (first)
 import Data.Chat.Bot (Bot (..))
 import Data.Chat.Utils (can, type (/+\))
+import Data.Profunctor (Profunctor (..))
 import Data.Text (Text)
 import Data.These (These (..), these)
 
@@ -36,9 +37,14 @@ applySerializer (Bot bot) (Serializer parser printer) = Bot $ \s i ->
 -- | Bidirectional serializer from 'Server' I/O to 'Bot' I/O.
 data Serializer so si bo bi = Serializer
   {parser :: so -> Maybe bi, printer :: bo -> si}
+  deriving stock (Functor)
 
 -- | A 'Serializer' whose 'Server' I/O has been specialized to 'Text'.
 type TextSerializer = Serializer Text Text
+
+instance Profunctor TextSerializer where
+  dimap f g (Serializer parser' printer') =
+    Serializer (fmap g . parser') (printer' . f)
 
 -- | Extend the parser portion of a 'TextSerializer' to consume a
 -- prefix string.
