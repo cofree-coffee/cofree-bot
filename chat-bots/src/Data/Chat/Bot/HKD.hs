@@ -14,6 +14,63 @@ import Data.Chat.Bot
 import Data.Kind
 import GHC.Generics
 import Prelude
+import Data.Chat.Bot.Serialization (TextSerializer, Serializer (..))
+import Data.Profunctor (dimap)
+
+--------------------------------------------------------------------------------
+
+newtype SerIn o i = SerIn i
+newtype SerOut o i = SerOut o
+
+class SequenceSer f where
+  sequenceSer :: f TextSerializer -> TextSerializer (f SerOut) (f SerIn)
+  default sequenceSer ::
+      ( forall x. Generic (f x),
+        GSequenceSer (Rep (f TextSerializer)) (Rep (f SerOut)) (Rep (f SerIn))) =>
+      f TextSerializer -> TextSerializer (f SerOut) (f SerIn)
+  sequenceSer s =
+      dimap _ _ $ gsequenceSer $ from s
+
+type GSequenceSer :: (Type -> Type) -> (Type -> Type) -> (Type -> Type) -> Constraint
+class GSequenceSer fbrep irep orep where
+  gsequenceSer :: fbrep x -> TextSerializer (irep x) (orep x)
+
+instance
+  (GSequenceSer f i o) =>
+  GSequenceSer
+    (M1 _1 _2 f)
+    (M1 _1 _2 i)
+    (M1 _1 _2 o)
+  where
+  gsequenceSer (M1 b) = dimap unM1 M1 $ gsequenceSer b
+
+instance
+  forall f1 i1 o1 f2 i2 o2.
+  (GSequenceSer f1 i1 o1, GSequenceSer f2 i2 o2) =>
+  GSequenceSer
+    (f1 :*: f2)
+    (i1 :*: i2)
+    (o1 :*: o2)
+  where
+  gsequenceSer (s1 :*: s2) =
+    let Serializer {parser = parse1, printer = print1} = gsequenceSer @f1 @i1 @o1 s1
+        Serializer {parser = parse2, printer = print2} = gsequenceSer @f2 @i2 @o2 s2
+     in Serializer
+      { parser = \i -> liftA2 (:*:) (parse1 i) (parse2 i),
+        printer = \(o1 :*: o2) -> print1 o1 <> "\n" <> print2 o2
+      }
+
+instance
+  GSequenceSer
+    (K1 _1 (TextSerializer o i))
+    (K1 _1 (SerOut o i))
+    (K1 _1 (SerIn o i))
+  where
+  gsequenceSer (K1 (Serializer parse print)) =
+    Serializer
+      { parser = fmap (K1 . SerIn) . parse,
+        printer = \(K1 (SerOut o)) -> print o
+      }
 
 --------------------------------------------------------------------------------
 
