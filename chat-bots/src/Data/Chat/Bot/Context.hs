@@ -25,6 +25,7 @@ where
 --------------------------------------------------------------------------------
 
 import Control.Applicative
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Attoparsec.Text
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization (TextSerializer)
@@ -98,7 +99,7 @@ sessionize defaultState (Bot bot) = Bot $ \(SessionState s) si -> case si of
 
 -- | A map of states @s@ used to track sessions in a "sessionized" bot.
 newtype SessionState s = SessionState {sessions :: IntMap s}
-  deriving newtype (Show, Read, Semigroup, Monoid)
+  deriving newtype (Show, Read, Semigroup, Monoid, ToJSON, FromJSON)
 
 freshSessionKey :: IntMap a -> Int
 freshSessionKey state = case IntMap.lookupMax state of

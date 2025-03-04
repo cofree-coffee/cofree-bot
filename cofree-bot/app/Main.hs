@@ -32,8 +32,7 @@ import Options
 import Options.Applicative qualified as Opt
 import System.Environment.XDG.BaseDir (getUserCacheDir)
 import System.Process.Typed (getStdout, withProcessWait_)
-
---------------------------------------------------------------------------------
+import TwoBot
 
 --------------------------------------------------------------------------------
 
@@ -58,8 +57,6 @@ main = do
 
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
-
 bot' process =
   helloBot @_ @() -- <----- polymorphic states need to get asserted to a monoid
     /+\ updogBot @_ @()
@@ -78,9 +75,9 @@ serializer' =
     S./+\ ghciSerializer
     S./+\ sessionSerializer calculatorSerializer
 
-bot process = S.applySerializer (bot' process) serializer'
+_bot process = S.applySerializer (bot' process) serializer'
 
---------------------------------------------------------------------------------
+bot _ = appliedHKDBot
 
 --------------------------------------------------------------------------------
 

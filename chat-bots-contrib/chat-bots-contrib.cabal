@@ -69,6 +69,7 @@ library
 
   hs-source-dirs:  src
   exposed-modules:
+    TwoBot
     Data.Chat.Bot.Calculator
     Data.Chat.Bot.Calculator.Language
     Data.Chat.Bot.CoinFlip
