@@ -45,12 +45,15 @@ import Control.Applicative (liftA2)
 import Data.Foldable (asum)
 #endif
 import Control.Category (Category (..))
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as BL
 import Data.Functor ((<&>))
 import Data.Kind
 import Data.Machine.Mealy (MealyT (..))
 import Data.Machine.Mealy.Coalgebra (MealyTC (..), fixMealyTC)
 import Data.Profunctor (Profunctor (..), Strong (..))
-import Data.Text qualified as Text
+import Data.Text.Encoding (encodeUtf8)
 import Data.These (These (..))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
 import Data.Void (Void)
@@ -150,7 +153,7 @@ fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> MealyT (ListT m) i 
 fixBot = fixMealyTC . MealyTC . runBot
 
 -- TODO: A bi-parser typeclass
-type Serializable a = (Read a, Show a)
+type Serializable a = (FromJSON a, ToJSON a)
 
 fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (MealyT (ListT m) i o)
 fixBotPersistent cachePath (Bot bot) initialState = do
@@ -166,15 +169,15 @@ fixBotPersistent cachePath (Bot bot) initialState = do
           liftIO $ saveState cachePath newState
           pure (output, go)
 
-readState :: (Read s) => FilePath -> IO (Maybe s)
+readState :: (FromJSON s) => FilePath -> IO (Maybe s)
 readState cachePath = do
   s <- readFileMaybe $ cachePath </> "state"
-  pure $ fmap (read . Text.unpack) s
+  pure $ s >>= Aeson.decode . BL.fromStrict . encodeUtf8
 
-saveState :: (Show s) => FilePath -> s -> IO ()
+saveState :: (ToJSON s) => FilePath -> s -> IO ()
 saveState cachePath state' = do
   createDirectoryIfMissing True cachePath
-  writeFile (cachePath </> "state") (show state')
+  BL.writeFile (cachePath </> "state") (Aeson.encode state')
 
 --------------------------------------------------------------------------------
 
