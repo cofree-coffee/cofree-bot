@@ -71,6 +71,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Data.Chat.Bot
+    Data.Chat.Bot.HKD
     Data.Chat.Bot.Monoidal
     Data.Chat.Bot.Context
     Data.Chat.Bot.Serialization
