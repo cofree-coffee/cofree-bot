@@ -12,6 +12,7 @@ module Data.Chat.Bot
     KBot,
 
     -- ** Operations
+    mapBot,
     invmapBot,
     contramapMaybeBot,
     emptyBot,
@@ -91,6 +92,10 @@ newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
     via MealyTC (ListT m) s i
+
+mapBot :: (Monad m) => (s -> s', s' -> s) -> (i' -> i) -> (o -> o') -> Bot m s i o -> Bot m s' i' o'
+mapBot (to, from) g h (Bot b) =
+  Bot $ \s a -> bimap h to <$> b (from s) (g a)
 
 deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
 
