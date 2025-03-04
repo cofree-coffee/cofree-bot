@@ -12,6 +12,7 @@ where
 
 --------------------------------------------------------------------------------
 
+import Control.Monad.IO.Class (MonadIO (..))
 import Data.Chat.Bot
 import Data.Chat.Bot.Serialization
 import Data.Text (Text)
@@ -20,8 +21,9 @@ import Data.Text qualified as Text
 --------------------------------------------------------------------------------
 
 -- | A pure, stateless bot which produces a 'Text' output.
-helloBot :: (Monad m) => Bot m s () Text
-helloBot = Bot $ \s () -> pure ("Are you talking to me, punk?", s)
+helloBot :: (MonadIO m) => Bot m s () Text
+helloBot = Bot $ \s () ->
+  pure ("Are you talking to me, punk?", s)
 
 --------------------------------------------------------------------------------
 
