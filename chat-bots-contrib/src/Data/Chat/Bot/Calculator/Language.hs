@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP #-}
 {-# OPTIONS -fdefer-typed-holes -Wno-orphans #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Data.Chat.Bot.Calculator.Language where
@@ -17,10 +15,6 @@ import Data.Char
     isDigit,
   )
 import Data.Chat.Utils
-#if __GLASGOW_HASKELL__ >= 902
-#else
-import Data.Foldable (asum)
-#endif
 import Data.Functor
 import Data.List.NonEmpty qualified as NE
 import Data.Map.Strict qualified as Map

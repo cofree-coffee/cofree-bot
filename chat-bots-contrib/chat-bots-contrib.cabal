@@ -48,7 +48,7 @@ common common-settings
 
 common common-libraries
   build-depends:
-    , base           >=2 && <5
+    , base           >=4.17 && <5
     , bytestring
     , filepath
     , list-t

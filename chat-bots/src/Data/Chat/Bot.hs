@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -31,24 +30,17 @@ where
 
 --------------------------------------------------------------------------------
 
+import Control.Applicative (asum)
+import Control.Category (Category (..))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
-import Data.Bifunctor (Bifunctor (..))
-import Data.Chat.Utils (readFileMaybe)
-#if MIN_VERSION_base(4,18,0)
-import Control.Applicative (asum)
-#elif MIN_VERSION_base(4,16,1)
-import Control.Applicative (asum, liftA2)
-#else
-import Control.Applicative (liftA2)
-import Data.Foldable (asum)
-#endif
-import Control.Category (Category (..))
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as Aeson
+import Data.Bifunctor (Bifunctor (..))
 import Data.ByteString.Lazy qualified as BL
+import Data.Chat.Utils (readFileMaybe)
 import Data.Functor ((<&>))
 import Data.Kind
 import Data.Machine.Mealy (MealyT (..))

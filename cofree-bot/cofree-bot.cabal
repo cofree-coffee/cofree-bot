@@ -49,7 +49,7 @@ common common-libraries
   build-depends:
     , aeson
     , barbies
-    , base           >=2 && <5
+    , base           >=4.17 && <5
     , bytestring
     , chat-bots
     , chat-bots-contrib

@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveLift #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
@@ -12,11 +11,7 @@ where
 
 --------------------------------------------------------------------------------
 
-#if __GLASGOW_HASKELL__ >= 902
 import Control.Applicative (asum)
-#else
-import Data.Foldable (asum)
-#endif
 import Control.Monad (void)
 import Data.Attoparsec.Text
   ( Parser,
