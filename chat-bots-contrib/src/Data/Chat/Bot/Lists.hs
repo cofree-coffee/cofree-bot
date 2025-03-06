@@ -1,6 +1,7 @@
 -- | A Bot Behavior for managing lists
 module Data.Chat.Bot.Lists
   ( listsBot,
+    listsBotSerializer,
   )
 where
 
@@ -13,23 +14,22 @@ import Data.Attoparsec.ByteString.Char8
   )
 import Data.Attoparsec.Text
 import Data.Chat.Bot
-import Data.Chat.Bot.Monoidal
-import Data.Chat.Utils (indistinct)
+import Data.Chat.Bot.Serialization
 import Data.IntMap.Strict (IntMap)
 import Data.IntMap.Strict qualified as IntMap
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromMaybe)
-import Data.Profunctor
+import Data.Text (Text)
 import Data.Text qualified as T
 
 --------------------------------------------------------------------------------
 
-data ListItemAction = Insert T.Text | Modify Int T.Text | Remove Int
+data ListItemAction = Insert Text | Modify Int Text | Remove Int
 
-data ListAction = CreateList T.Text | ModifyList T.Text ListItemAction | DeleteList T.Text | ShowList T.Text
+data ListAction = CreateList Text | ModifyList Text ListItemAction | DeleteList Text | ShowList Text
 
-listItemBot :: (Monad m) => Bot m (IntMap T.Text) ListItemAction T.Text
+listItemBot :: (Monad m) => Bot m (IntMap Text) ListItemAction Text
 listItemBot = Bot $ \s -> \case
   Insert todo ->
     let k = freshKey s in pure ("Entry added", IntMap.insert k todo s)
@@ -41,8 +41,16 @@ freshKey state = case IntMap.lookupMax state of
   Nothing -> 0
   Just (k, _) -> k + 1
 
-listsBot' :: (Monad m) => Bot m (Map T.Text (IntMap T.Text)) ListAction T.Text
-listsBot' = Bot $ \s -> \case
+prettyList :: Text -> IntMap Text -> Text
+prettyList name list = name <> ":\n" <> foldr (\(i, x) acc -> T.pack (show i) <> ". " <> x <> "\n" <> acc) mempty (IntMap.toList list)
+
+prettyListM :: Text -> Maybe (IntMap Text) -> Text
+prettyListM name = \case
+  Nothing -> "List '" <> name <> "' not found."
+  Just l -> prettyList name l
+
+listsBot :: (Monad m) => Bot m (Map Text (IntMap Text)) ListAction Text
+listsBot = Bot $ \s -> \case
   CreateList name -> pure ("List Created", Map.insert name mempty s)
   ModifyList name action -> do
     let t = fromMaybe IntMap.empty $ Map.lookup name s
@@ -51,19 +59,16 @@ listsBot' = Bot $ \s -> \case
   DeleteList name -> pure ("List deleted", Map.delete name s)
   ShowList name -> pure (prettyListM name $ Map.lookup name s, s)
 
-prettyList :: T.Text -> IntMap T.Text -> T.Text
-prettyList name list = name <> ":\n" <> foldr (\(i, x) acc -> T.pack (show i) <> ". " <> x <> "\n" <> acc) mempty (IntMap.toList list)
+--------------------------------------------------------------------------------
 
-prettyListM :: T.Text -> Maybe (IntMap T.Text) -> T.Text
-prettyListM name = \case
-  Nothing -> "List '" <> name <> "' not found."
-  Just l -> prettyList name l
+listsBotSerializer :: TextSerializer Text ListAction
+listsBotSerializer = Serializer parseListAction id
 
-listsBot :: (Monad m) => Bot m (s, (Map T.Text (IntMap T.Text))) T.Text T.Text
-listsBot = dimap (parseOnly parseListAction) indistinct $ emptyBot \/ listsBot'
+parseListAction :: Text -> Maybe ListAction
+parseListAction = either (const Nothing) Just . parseOnly listActionParser
 
-parseListAction :: Parser ListAction
-parseListAction =
+listActionParser :: Parser ListAction
+listActionParser =
   parseCreateList
     <|> parseDeleteList
     <|> parseAddListItem
