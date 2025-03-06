@@ -20,6 +20,7 @@ import Data.Chat.Bot.HKD
 import Data.Chat.Bot.Hello
 import Data.Chat.Bot.Jitsi
 import Data.Chat.Bot.Magic8Ball
+import Data.Chat.Bot.Quote qualified as Quote
 import Data.Chat.Bot.Serialization qualified as S
 import Data.Chat.Bot.Updog
 import Data.Chat.Server
@@ -66,7 +67,8 @@ data CofreeBot p = CofreeBot
     magic8Ball :: p () () Int,
     jitsi :: p () () Text,
     ghci :: p () Text Text,
-    calclator :: p (SessionState CalcState) (SessionInput Statement) (SessionOutput (Either CalcError CalcResp))
+    quote :: p [Text] Quote.Command Text,
+    calculator :: p (SessionState CalcState) (SessionInput Statement) (SessionOutput (Either CalcError CalcResp))
   }
   deriving stock (Generic)
   deriving anyclass (SequenceBot, SequenceSer)
@@ -82,24 +84,28 @@ deriving via (Generically (CofreeBot StateF)) instance Monoid (CofreeBot StateF)
 bot' :: Process Handle Handle () -> CofreeBot (Bot IO)
 bot' process =
   CofreeBot
-    helloBot
-    updogBot
-    coinFlipBot
-    magic8BallBot
-    jitsiBot
-    (ghciBot process)
-    (sessionize mempty calculatorBot)
+    { hello = helloBot,
+      updog = updogBot,
+      coinFlip = coinFlipBot,
+      magic8Ball = magic8BallBot,
+      jitsi = jitsiBot,
+      ghci = (ghciBot process),
+      quote = Quote.quoteBot,
+      calculator = (sessionize mempty calculatorBot)
+    }
 
 serializer' :: CofreeBot Contorted
 serializer' =
   CofreeBot
-    (Contort helloBotSerializer)
-    (Contort updogSerializer)
-    (Contort coinFlipSerializer)
-    (Contort magic8BallSerializer)
-    (Contort jitsiSerializer)
-    (Contort ghciSerializer)
-    (Contort $ sessionSerializer calculatorSerializer)
+    { hello = Contort helloBotSerializer,
+      updog = Contort updogSerializer,
+      coinFlip = Contort coinFlipSerializer,
+      magic8Ball = Contort magic8BallSerializer,
+      jitsi = Contort jitsiSerializer,
+      ghci = Contort ghciSerializer,
+      quote = Contort Quote.quoteBotSerializer,
+      calculator = (Contort $ sessionSerializer calculatorSerializer)
+    }
 
 bot :: Process Handle Handle () -> Bot IO (CofreeBot StateF) Text Text
 bot process = S.applySerializer (sequenceBot $ bot' process) (sequenceSer serializer')
