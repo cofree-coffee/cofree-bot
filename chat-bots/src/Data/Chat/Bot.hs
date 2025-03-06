@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,6 +11,7 @@ module Data.Chat.Bot
     KBot,
 
     -- ** Operations
+    mapBot,
     invmapBot,
     contramapMaybeBot,
     emptyBot,
@@ -30,27 +30,23 @@ where
 
 --------------------------------------------------------------------------------
 
+import Control.Applicative (asum)
+import Control.Category (Category (..))
 import Control.Monad.IO.Class (MonadIO (..))
 import Control.Monad.ListT (ListF (..), ListT (..), emptyListT, hoistListT)
 import Control.Monad.Reader (MonadReader)
 import Control.Monad.State (MonadState)
+import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson qualified as Aeson
 import Data.Bifunctor (Bifunctor (..))
+import Data.ByteString.Lazy qualified as BL
 import Data.Chat.Utils (readFileMaybe)
-#if MIN_VERSION_base(4,18,0)
-import Control.Applicative (asum)
-#elif MIN_VERSION_base(4,16,1)
-import Control.Applicative (asum, liftA2)
-#else
-import Control.Applicative (liftA2)
-import Data.Foldable (asum)
-#endif
-import Control.Category (Category (..))
 import Data.Functor ((<&>))
 import Data.Kind
 import Data.Machine.Mealy (MealyT (..))
 import Data.Machine.Mealy.Coalgebra (MealyTC (..), fixMealyTC)
 import Data.Profunctor (Profunctor (..), Strong (..))
-import Data.Text qualified as Text
+import Data.Text.Encoding (encodeUtf8)
 import Data.These (These (..))
 import Data.Trifunctor.Monoidal qualified as Trifunctor
 import Data.Void (Void)
@@ -88,6 +84,10 @@ newtype Bot m s i o = Bot {runBot :: s -> i -> ListT m (o, s)}
   deriving
     (Functor, Applicative, Monad, MonadState s, MonadReader i, MonadIO)
     via MealyTC (ListT m) s i
+
+mapBot :: (Monad m) => (s -> s', s' -> s) -> (i' -> i) -> (o -> o') -> Bot m s i o -> Bot m s' i' o'
+mapBot (to, from) g h (Bot b) =
+  Bot $ \s a -> bimap h to <$> b (from s) (g a)
 
 deriving via (MealyTC (ListT m)) instance (Monad m) => Trifunctor.Semigroupal (->) (,) (,) (,) (,) (Bot m)
 
@@ -150,7 +150,7 @@ fixBot :: forall m s i o. (Functor m) => Bot m s i o -> s -> MealyT (ListT m) i 
 fixBot = fixMealyTC . MealyTC . runBot
 
 -- TODO: A bi-parser typeclass
-type Serializable a = (Read a, Show a)
+type Serializable a = (FromJSON a, ToJSON a)
 
 fixBotPersistent :: forall m s i o. (MonadIO m, Serializable s) => FilePath -> Bot m s i o -> s -> IO (MealyT (ListT m) i o)
 fixBotPersistent cachePath (Bot bot) initialState = do
@@ -166,15 +166,15 @@ fixBotPersistent cachePath (Bot bot) initialState = do
           liftIO $ saveState cachePath newState
           pure (output, go)
 
-readState :: (Read s) => FilePath -> IO (Maybe s)
+readState :: (FromJSON s) => FilePath -> IO (Maybe s)
 readState cachePath = do
   s <- readFileMaybe $ cachePath </> "state"
-  pure $ fmap (read . Text.unpack) s
+  pure $ s >>= Aeson.decode . BL.fromStrict . encodeUtf8
 
-saveState :: (Show s) => FilePath -> s -> IO ()
+saveState :: (ToJSON s) => FilePath -> s -> IO ()
 saveState cachePath state' = do
   createDirectoryIfMissing True cachePath
-  writeFile (cachePath </> "state") (show state')
+  BL.writeFile (cachePath </> "state") (Aeson.encode state')
 
 --------------------------------------------------------------------------------
 

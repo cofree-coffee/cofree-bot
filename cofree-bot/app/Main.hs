@@ -1,5 +1,4 @@
 {-# LANGUAGE NumDecimals #-}
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
 
 module Main where
 
@@ -11,29 +10,31 @@ import Control.Monad.Except
     runExceptT,
   )
 import Control.Monad.IO.Class (liftIO)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Chat.Bot
 import Data.Chat.Bot.Calculator
 import Data.Chat.Bot.CoinFlip
 import Data.Chat.Bot.Context
 import Data.Chat.Bot.GHCI
+import Data.Chat.Bot.HKD
 import Data.Chat.Bot.Hello
 import Data.Chat.Bot.Jitsi
 import Data.Chat.Bot.Magic8Ball
-import Data.Chat.Bot.Monoidal
 import Data.Chat.Bot.Serialization qualified as S
 import Data.Chat.Bot.Updog
 import Data.Chat.Server
 import Data.Chat.Server.Matrix
 import Data.Chat.Server.Repl
 import Data.Foldable (fold)
+import Data.Text (Text)
 import GHC.Conc (threadDelay)
+import GHC.Generics (Generic, Generically (..))
+import GHC.IO.Handle (Handle)
 import Network.Matrix.Client (ClientSession, login)
 import Options
 import Options.Applicative qualified as Opt
 import System.Environment.XDG.BaseDir (getUserCacheDir)
-import System.Process.Typed (getStdout, withProcessWait_)
-
---------------------------------------------------------------------------------
+import System.Process.Typed (Process, getStdout, withProcessWait_)
 
 --------------------------------------------------------------------------------
 
@@ -58,29 +59,50 @@ main = do
 
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
+data CofreeBot p = CofreeBot
+  { hello :: p () () Text,
+    updog :: p () Updog Text,
+    coinFlip :: p () () Bool,
+    magic8Ball :: p () () Int,
+    jitsi :: p () () Text,
+    ghci :: p () Text Text,
+    calclator :: p (SessionState CalcState) (SessionInput Statement) (SessionOutput (Either CalcError CalcResp))
+  }
+  deriving stock (Generic)
+  deriving anyclass (SequenceBot, SequenceSer)
 
+deriving instance FromJSON (CofreeBot StateF)
+
+deriving instance ToJSON (CofreeBot StateF)
+
+deriving via (Generically (CofreeBot StateF)) instance Semigroup (CofreeBot StateF)
+
+deriving via (Generically (CofreeBot StateF)) instance Monoid (CofreeBot StateF)
+
+bot' :: Process Handle Handle () -> CofreeBot (Bot IO)
 bot' process =
-  helloBot @_ @() -- <----- polymorphic states need to get asserted to a monoid
-    /+\ updogBot @_ @()
-    /+\ coinFlipBot
-    /+\ magic8BallBot
-    /+\ jitsiBot
-    /+\ ghciBot process
-    /+\ sessionize mempty calculatorBot
+  CofreeBot
+    helloBot
+    updogBot
+    coinFlipBot
+    magic8BallBot
+    jitsiBot
+    (ghciBot process)
+    (sessionize mempty calculatorBot)
 
+serializer' :: CofreeBot Contorted
 serializer' =
-  helloBotSerializer
-    S./+\ updogSerializer
-    S./+\ coinFlipSerializer
-    S./+\ magic8BallSerializer
-    S./+\ jitsiSerializer
-    S./+\ ghciSerializer
-    S./+\ sessionSerializer calculatorSerializer
+  CofreeBot
+    (Contort helloBotSerializer)
+    (Contort updogSerializer)
+    (Contort coinFlipSerializer)
+    (Contort magic8BallSerializer)
+    (Contort jitsiSerializer)
+    (Contort ghciSerializer)
+    (Contort $ sessionSerializer calculatorSerializer)
 
-bot process = S.applySerializer (bot' process) serializer'
-
---------------------------------------------------------------------------------
+bot :: Process Handle Handle () -> Bot IO (CofreeBot StateF) Text Text
+bot process = S.applySerializer (sequenceBot $ bot' process) (sequenceSer serializer')
 
 --------------------------------------------------------------------------------
 

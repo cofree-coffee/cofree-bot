@@ -48,7 +48,7 @@ common common-settings
 
 common common-libraries
   build-depends:
-    , base           >=2 && <5
+    , base           >=4.17 && <5
     , bytestring
     , list-t
     , machines-coalgebras
@@ -71,6 +71,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Data.Chat.Bot
+    Data.Chat.Bot.HKD
     Data.Chat.Bot.Monoidal
     Data.Chat.Bot.Context
     Data.Chat.Bot.Serialization
@@ -107,7 +108,7 @@ test-suite chat-bot-tests
   main-is: Spec.hs
 
   build-depends:
-    , base           >=2 && <5
+    , base           >=4.17 && <5
     , chat-bots
     , hedgehog
     , hedgehog-classes

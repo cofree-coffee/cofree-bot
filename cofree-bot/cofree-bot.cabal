@@ -14,6 +14,7 @@ common common-settings
   default-language:   Haskell2010
   default-extensions:
     DataKinds
+    DeriveAnyClass
     DeriveFunctor
     DeriveGeneric
     DerivingVia
@@ -28,6 +29,7 @@ common common-settings
     PatternSynonyms
     RecordWildCards
     ScopedTypeVariables
+    StandaloneDeriving
     StandaloneKindSignatures
     TupleSections
     TypeApplications
@@ -49,7 +51,7 @@ common common-libraries
   build-depends:
     , aeson
     , barbies
-    , base           >=2 && <5
+    , base           >=4.17 && <5
     , bytestring
     , chat-bots
     , chat-bots-contrib

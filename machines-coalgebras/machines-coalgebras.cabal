@@ -43,7 +43,7 @@ common common-settings
 
 common common-libraries
   build-depends:
-    , base           >=2 && <5
+    , base           >=4.9 && <5
     , data-fix
     , machines
     , monoidal-functors
