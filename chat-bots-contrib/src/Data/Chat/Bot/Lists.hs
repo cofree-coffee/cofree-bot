@@ -2,6 +2,8 @@
 module Data.Chat.Bot.Lists
   ( listsBot,
     listsBotSerializer,
+    ListsState (..),
+    ListAction,
   )
 where
 
@@ -9,6 +11,7 @@ where
 
 import Control.Applicative
 import Control.Monad (void)
+import Data.Aeson (FromJSON, ToJSON)
 import Data.Attoparsec.ByteString.Char8
   ( isSpace,
   )
@@ -28,6 +31,9 @@ import Data.Text qualified as T
 data ListItemAction = Insert Text | Modify Int Text | Remove Int
 
 data ListAction = CreateList Text | ModifyList Text ListItemAction | DeleteList Text | ShowList Text
+
+newtype ListsState = ListsState {getListsState :: Map Text (IntMap Text)}
+  deriving newtype (FromJSON, ToJSON, Semigroup, Monoid)
 
 listItemBot :: (Monad m) => Bot m (IntMap Text) ListItemAction Text
 listItemBot = Bot $ \s -> \case
@@ -49,15 +55,15 @@ prettyListM name = \case
   Nothing -> "List '" <> name <> "' not found."
   Just l -> prettyList name l
 
-listsBot :: (Monad m) => Bot m (Map Text (IntMap Text)) ListAction Text
-listsBot = Bot $ \s -> \case
-  CreateList name -> pure ("List Created", Map.insert name mempty s)
+listsBot :: (Monad m) => Bot m ListsState ListAction Text
+listsBot = Bot $ \(ListsState s) -> \case
+  CreateList name -> pure ("List Created", ListsState $ Map.insert name mempty s)
   ModifyList name action -> do
     let t = fromMaybe IntMap.empty $ Map.lookup name s
     t' <- fmap snd $ runBot listItemBot t action
-    pure ("List Updated", Map.insert name t' s)
-  DeleteList name -> pure ("List deleted", Map.delete name s)
-  ShowList name -> pure (prettyListM name $ Map.lookup name s, s)
+    pure ("List Updated", ListsState $ Map.insert name t' s)
+  DeleteList name -> pure ("List deleted", ListsState $ Map.delete name s)
+  ShowList name -> pure (prettyListM name $ Map.lookup name s, ListsState $ s)
 
 --------------------------------------------------------------------------------
 
