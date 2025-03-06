@@ -20,5 +20,11 @@ jobs:
         name: cofree-coffee
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     
-    - name: Build 🔨
-      run: nix build
+    - name: Build 9.4.8 🔨
+      run: nix build .#ghc948/cofree-bot
+    
+    - name: Build 9.6.3 🔨
+      run: nix build .#ghc963/cofree-bot
+    
+    - name: Build 9.8.2 🔨
+      run: nix build .#ghc982/cofree-bot
