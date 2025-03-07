@@ -19,6 +19,7 @@ import Data.Chat.Bot.GHCI
 import Data.Chat.Bot.HKD
 import Data.Chat.Bot.Hello
 import Data.Chat.Bot.Jitsi
+import Data.Chat.Bot.Lists qualified as Lists
 import Data.Chat.Bot.Magic8Ball
 import Data.Chat.Bot.Serialization qualified as S
 import Data.Chat.Bot.Updog
@@ -66,7 +67,8 @@ data CofreeBot p = CofreeBot
     magic8Ball :: p () () Int,
     jitsi :: p () () Text,
     ghci :: p () Text Text,
-    calclator :: p (SessionState CalcState) (SessionInput Statement) (SessionOutput (Either CalcError CalcResp))
+    calclator :: p (SessionState CalcState) (SessionInput Statement) (SessionOutput (Either CalcError CalcResp)),
+    lists :: p (Lists.ListsState) Lists.ListAction Text
   }
   deriving stock (Generic)
   deriving anyclass (SequenceBot, SequenceSer)
@@ -89,6 +91,7 @@ bot' process =
     jitsiBot
     (ghciBot process)
     (sessionize mempty calculatorBot)
+    Lists.listsBot
 
 serializer' :: CofreeBot Contorted
 serializer' =
@@ -100,6 +103,7 @@ serializer' =
     (Contort jitsiSerializer)
     (Contort ghciSerializer)
     (Contort $ sessionSerializer calculatorSerializer)
+    (Contort $ Lists.listsBotSerializer)
 
 bot :: Process Handle Handle () -> Bot IO (CofreeBot StateF) Text Text
 bot process = S.applySerializer (sequenceBot $ bot' process) (sequenceSer serializer')

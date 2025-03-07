@@ -76,6 +76,7 @@ library
     Data.Chat.Bot.Hello
     Data.Chat.Bot.Jitsi
     Data.Chat.Bot.Jitsi.Dictionary
+    Data.Chat.Bot.Lists
     Data.Chat.Bot.Magic8Ball
     Data.Chat.Bot.Updog
     Data.Chat.Server.Matrix
