@@ -9,6 +9,7 @@ import Data.Chat.Bot (Bot (..), fixBot)
 import Data.Chat.Bot.CalculatorSpec qualified as Calculator
 import Data.Chat.Bot.ContextSpec qualified as Context
 import Data.Chat.Bot.HelloSpec qualified as Hello
+import Data.Chat.Bot.QuoteSpec qualified as Quote
 import Data.Chat.Bot.UpdogSpec qualified as Updog
 import Data.Machine.Mealy (MealyT)
 import Data.Text (Text, pack)
@@ -24,6 +25,7 @@ main = hspec $ do
   Context.spec
   Calculator.spec
   Hello.spec
+  Quote.spec
   Updog.spec
 
 -- | A test for our bot scripting tests setup.

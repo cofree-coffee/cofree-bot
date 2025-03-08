@@ -50,6 +50,7 @@ common common-libraries
   build-depends:
     , base           >=4.17 && <5
     , bytestring
+    , text-display
     , filepath
     , list-t
     , machines-coalgebras
@@ -77,6 +78,7 @@ library
     Data.Chat.Bot.Jitsi
     Data.Chat.Bot.Jitsi.Dictionary
     Data.Chat.Bot.Magic8Ball
+    Data.Chat.Bot.Quote
     Data.Chat.Bot.Updog
     Data.Chat.Server.Matrix
 
@@ -129,4 +131,5 @@ test-suite chat-bots-contrib-test
     Data.Chat.Bot.CalculatorSpec
     Data.Chat.Bot.ContextSpec
     Data.Chat.Bot.HelloSpec
+    Data.Chat.Bot.QuoteSpec
     Data.Chat.Bot.UpdogSpec
