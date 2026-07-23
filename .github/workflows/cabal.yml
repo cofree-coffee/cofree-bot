@@ -16,7 +16,7 @@ jobs:
     if: "!contains(github.event.pull_request.labels.*.name, 'ignore-server-format-checks')"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check format
         run: |
           ORMOLU_VERSION="0.7.2.0"
@@ -31,15 +31,12 @@ jobs:
     
     strategy:
       matrix:
-        cabal: ["3.10"]
-        ghc: ["9.4.8", "9.6.3", "9.8.2"]
-
-    env:
-      CONFIG: "--project-file=cabal.project"
+        cabal: ["3.14"]
+        ghc: ["9.4.8", "9.6.7", "9.8.4", "9.10.3", "9.12.4"]
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup
         uses: haskell-actions/setup@v2
@@ -50,11 +47,11 @@ jobs:
 
       - name: Freeze
         run: |
-          cabal configure --enable-tests --test-show-details=direct $CONFIG
+          cabal configure --enable-tests --test-show-details=direct
           cabal freeze
 
       - name: Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         env:
           cache-name: cache-cabal
         with:
@@ -66,13 +63,13 @@ jobs:
             ${{ runner.os }}-${{ matrix.ghc }}-      
 
       - name: Build
-        run: cabal build all $CONFIG
+        run: cabal build all
 
       - name: Test
-        run: cabal test all $CONFIG
+        run: cabal test all
 
       - name: Haddock
-        run: cabal haddock all $CONFIG
+        run: cabal haddock all
 
       - name: SDist
-        run: cabal sdist all $CONFIG
+        run: cabal sdist all

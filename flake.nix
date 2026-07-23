@@ -2,7 +2,7 @@
   description = "Cofree.Coffee Matrix Bot";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/26.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -13,7 +13,7 @@
       flake-utils,
     }:
     let
-      ghcVersion = "982";
+      ghcVersion = "9103";
       compiler = "ghc${ghcVersion}";
     in
     flake-utils.lib.eachDefaultSystem (
@@ -31,7 +31,6 @@
           compiler:
           evalPkgs.haskell.packages.${compiler}.override {
             overrides = hfinal: hprev: {
-              base64 = hfinal.base64_1_0;
               chat-bots = hfinal.callCabal2nix "chat-bots" ./chat-bots/. { };
               chat-bots-contrib = hfinal.callCabal2nix "chat-bots" ./chat-bots-contrib/. { };
               cofree-bot = hfinal.callCabal2nix "cofree-bot" ./cofree-bot/. { };
@@ -43,12 +42,16 @@
                 rev = "e951a2be496d57d7f4e5b582ad175e8e97a9ab7b";
                 sha256 = "sha256-HfIMuU9yBp0JtN/ONOFku1wItbGLJl09fhaFzyiNVMg=";
               }) { };
-              matrix-client = hfinal.callCabal2nix "matrix-client" (pkgs.fetchFromGitHub {
+              # Jailbreak relaxes matrix-client's stale `hashable <1.5` / `time <1.13`
+              # upper bounds. nixpkgs 26.05 ships hashable 1.5 (GHC >= 9.6) and GHC
+              # 9.12 ships time 1.14; the pinned rev's bounds predate both. This
+              # strips the bounds without changing the pinned version.
+              matrix-client = pkgs.haskell.lib.doJailbreak (hfinal.callCabal2nix "matrix-client" (pkgs.fetchFromGitHub {
                 owner = "softwarefactory-project";
                 repo = "matrix-client-haskell";
                 rev = "57f13c2579fbcd9088fbb6b25046460e6cdbfdb0";
                 sha256 = "sha256-GNCnlaxWhg5pDi8JYlXyrqVIljr7NcNy+tWYSb+YYAg=";
-              }) { };
+              }) { });
             };
           };
 
@@ -100,9 +103,12 @@
         # otherwise non-x86_64-linux users will not be able to build the dev env
         devShells = {
           default = mkShellFor { inherit compiler; };
-          ghc948 = mkShellFor { compiler = "ghc948"; };
-          ghc963 = mkShellFor { compiler = "ghc963"; };
-          ghc982 = mkShellFor { compiler = "ghc982"; };
+          # No ghc948 dev shell: haskell-language-server >= 2.12 (nixpkgs 26.05)
+          # dropped GHC 9.4 support. 9.4.8 remains a build target below.
+          ghc967 = mkShellFor { compiler = "ghc967"; };
+          ghc984 = mkShellFor { compiler = "ghc984"; };
+          ghc9103 = mkShellFor { compiler = "ghc9103"; };
+          ghc9124 = mkShellFor { compiler = "ghc9124"; };
         };
 
         packages = flake-utils.lib.flattenTree rec {
@@ -110,10 +116,11 @@
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
-          ghc982 = mkPkgsFor "ghc982";
-          ghc963 = mkPkgsFor "ghc963";
           ghc948 = mkPkgsFor "ghc948";
-          ghc928 = mkPkgsFor "ghc928";
+          ghc967 = mkPkgsFor "ghc967";
+          ghc984 = mkPkgsFor "ghc984";
+          ghc9103 = mkPkgsFor "ghc9103";
+          ghc9124 = mkPkgsFor "ghc9124";
           chat-bots = hsPkgs.chat-bots;
           chat-bots-contrib = hsPkgs.chat-bots-contrib;
           cofree-bot = hsPkgs.cofree-bot;

@@ -13,3 +13,11 @@ source-repository-package
   type: git
   location: https://github.com/solomon-b/monoidal-functors.git
   tag: e951a2be496d57d7f4e5b582ad175e8e97a9ab7b
+
+-- The pinned matrix-client rev carries stale upper bounds (`hashable <1.5`,
+-- `time <1.13`). Recent package sets ship hashable 1.5 (GHC >= 9.6) and GHC
+-- 9.12 ships time 1.14, so relax those bounds for the solver. Mirrors the
+-- doJailbreak on matrix-client in flake.nix.
+allow-newer:
+  matrix-client:hashable,
+  matrix-client:time
