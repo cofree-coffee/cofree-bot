@@ -103,8 +103,8 @@
         # otherwise non-x86_64-linux users will not be able to build the dev env
         devShells = {
           default = mkShellFor { inherit compiler; };
-          # No ghc948 dev shell: haskell-language-server >= 2.12 (nixpkgs 26.05)
-          # dropped GHC 9.4 support. 9.4.8 remains a build target below.
+          # No ghc948: the pinned matrix-client rev requires base64 >=1.0, which
+          # needs base >=4.18 (GHC >=9.6), so GHC 9.4 is no longer supported.
           ghc967 = mkShellFor { compiler = "ghc967"; };
           ghc984 = mkShellFor { compiler = "ghc984"; };
           ghc9103 = mkShellFor { compiler = "ghc9103"; };
@@ -116,7 +116,6 @@
             inherit pkgs;
             cofree-bot = hsPkgs.cofree-bot;
           };
-          ghc948 = mkPkgsFor "ghc948";
           ghc967 = mkPkgsFor "ghc967";
           ghc984 = mkPkgsFor "ghc984";
           ghc9103 = mkPkgsFor "ghc9103";
