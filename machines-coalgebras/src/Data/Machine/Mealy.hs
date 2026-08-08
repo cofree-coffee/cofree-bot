@@ -22,10 +22,16 @@ import Control.Category (Category (..))
 import Control.Monad.Trans (MonadTrans (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Bifunctor.Monoidal qualified as Bifunctor
-import Data.Functor.Identity (Identity)
+import Data.Functor.Identity (Identity (..))
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NonEmpty
 import Data.Machine.MealyT (MealyT (..))
-import Data.Profunctor (Choice, Strong (..))
-import Data.Profunctor.Choice (Choice (..))
+import Data.Profunctor (Strong (..))
+import Data.Profunctor.Choice (Choice (..), Cochoice (..))
+import Data.Profunctor.Closed (Closed (..))
+import Data.Profunctor.Rep (Corepresentable (..), unfirstCorep)
+import Data.Profunctor.Sieve (Cosieve (..))
+import Data.Profunctor.Strong (Costrong (..))
 import Prelude hiding (id, (.))
 
 --------------------------------------------------------------------------------
@@ -52,6 +58,36 @@ instance (Functor m) => Strong (MealyT m) where
 instance (Applicative m) => Choice (MealyT m) where
   left' :: MealyT m i o -> MealyT m (Either i x) (Either o x)
   left' (MealyT mealy) = MealyT $ either (fmap (bimap Left left') . mealy) (pure . (,left' (MealyT mealy)) . Right)
+
+instance (Monad m) => Cochoice (MealyT m) where
+  unleft :: MealyT m (Either a d) (Either b d) -> MealyT m a b
+  unleft m = MealyT $ \a -> go m (Left a)
+    where
+      go :: MealyT m (Either a d) (Either b d) -> Either a d -> m (b, MealyT m a b)
+      go (MealyT mealy) x = do
+        mealy x >>= \case
+          (Left b, m) -> pure (b, unleft m)
+          (Right d, m) -> go m (Right d)
+
+instance Cosieve (MealyT Identity) NonEmpty where
+  cosieve :: MealyT Identity a b -> NonEmpty a -> b
+  cosieve (MealyT m) (x :| xs) = runIdentity $ do
+    (b, MealyT m) <- m x
+    case xs of
+      [] -> pure b
+      x : xs -> pure $ cosieve (MealyT m) (x :| xs)
+
+instance Corepresentable (MealyT Identity) where
+  type Corep (MealyT Identity) = NonEmpty
+
+  cotabulate :: (Corep (MealyT Identity) d -> c) -> MealyT Identity d c
+  cotabulate f = MealyT $ \a -> Identity $ go [a] f
+    where
+      go as f = (f (NonEmpty.fromList $ reverse as), MealyT $ \a -> Identity $ go (a : as) f)
+
+instance Costrong (MealyT Identity) where
+  unfirst :: MealyT Identity (a, d) (b, d) -> MealyT Identity a b
+  unfirst = unfirstCorep
 
 -- | Lift a monad morphism from @m@ to @n@ into a monad morphism from
 -- @MealyT m s i o@ to @MealyT n s i o@
